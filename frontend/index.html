@@ -133,7 +133,15 @@
           <section class="hero-grid">
             <article class="score-panel">
               <div class="panel-heading">
-                <p>현재 시장 상태</p>
+                <p>
+                  현재 시장 상태
+                  <span
+                    class="info-tip"
+                    tabindex="0"
+                    aria-label="FOMO Score 설명"
+                    data-tooltip="FOMO Score는 가격 예측이 아니라 업비트 공개 데이터로 계산한 시장 심리 상태 관찰값입니다."
+                  >i</span>
+                </p>
                 <span id="currentGrade" class="pill">-</span>
               </div>
               <div class="score-row">
@@ -161,6 +169,32 @@
               <div id="readinessBreakdown" class="readiness-breakdown"></div>
               <div class="check-grid" id="checkGrid"></div>
             </article>
+          </section>
+
+          <section class="readiness-guide-section">
+            <div class="section-heading compact">
+              <div>
+                <h2>판단 준비도 해석 기준</h2>
+                <p>이 점수는 투자 가능 여부가 아니라 판단 전 근거 확인 상태를 보여줍니다.</p>
+              </div>
+            </div>
+            <div class="readiness-guide-grid">
+              <div class="readiness-guide-card good">
+                <strong>68점 이상</strong>
+                <span>점검 양호</span>
+                <p>정보와 감정을 비교적 분리해 본 상태입니다.</p>
+              </div>
+              <div class="readiness-guide-card warn">
+                <strong>50~67점</strong>
+                <span>추가 확인</span>
+                <p>오차, 과거 사례, 자기 점검을 한 번 더 볼 구간입니다.</p>
+              </div>
+              <div class="readiness-guide-card alert">
+                <strong>49점 이하</strong>
+                <span>점검 필요</span>
+                <p>판단보다 근거 확인과 Decision Pause가 먼저 필요한 상태입니다.</p>
+              </div>
+            </div>
           </section>
 
           <section class="chart-section">

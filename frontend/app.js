@@ -559,22 +559,30 @@ function renderDemoStage() {
     </div>
     <div class="evidence-grid">
       <div class="evidence-card observation-score" style="--fill:${evidenceFill.fomo}%">
-        <span>FOMO Score</span>
+        <span class="evidence-label">
+          FOMO Score
+          <span
+            class="info-tip"
+            tabindex="0"
+            aria-label="FOMO Score 설명"
+            data-tooltip="FOMO Score는 가격 예측이 아니라 업비트 공개 데이터로 계산한 시장 심리 상태 관찰값입니다."
+          >i</span>
+        </span>
         <strong>${Number.isFinite(score) ? formatScore(score) : "--"}</strong>
         <p>${escapeHtml(grade)}</p>
       </div>
       <div class="evidence-card observation-price" style="--fill:${evidenceFill.price}%">
-        <span>표시용 현재가</span>
+        <span class="evidence-label">표시용 현재가</span>
         <strong>${ticker ? `${formatKrw(ticker.trade_price)} KRW` : "불러오는 중"}</strong>
         <p>${ticker ? formatSignedPercent(ticker.signed_change_rate) : "Upbit 공개 ticker"}</p>
       </div>
       <div class="evidence-card observation-mirror" style="--fill:${evidenceFill.mirror}%">
-        <span>과거 참고</span>
+        <span class="evidence-label">과거 참고</span>
         <strong>${topMirror ? escapeHtml(formatShortDate(topMirror.date)) : `${mirrorCount}개`}</strong>
         <p>${escapeHtml(mirrorAgeCopy)}</p>
       </div>
       <div class="evidence-card observation-error" style="--fill:${evidenceFill.error}%">
-        <span>오차 범위</span>
+        <span class="evidence-label">오차 범위</span>
         <strong>${longest ? `±${formatScore(Number(longest.error_band))}` : "계산 중"}</strong>
         <p>${escapeHtml(errorCopy)}</p>
       </div>
