@@ -433,7 +433,7 @@ function renderDemoStage() {
   const readinessValue = readinessInfo ? Math.round(readinessInfo.readiness) : "--";
   const readinessTone = readinessInfo?.tone || "neutral";
   const completedPause = pauseCount === PAUSE_CHECKS.length;
-  const flowFinished = completedPause || state.demoStep >= 4;
+  const flowFinished = state.demoStep >= 4;
   const pauseActive = state.demoStep >= 3 || pauseCount > 0;
   const observationVisible = Boolean(virtualLog) || state.demoStep >= 1 || pauseActive || flowFinished;
   const routeVisible = state.demoStep >= 2 || pauseActive || flowFinished;
@@ -1355,19 +1355,7 @@ document.addEventListener("click", (event) => {
   if (button) {
     const id = button.getAttribute("data-check-id");
     const wasChecked = Boolean(state.pauseChecks[id]);
-    if (wasChecked) {
-      renderDemoStage();
-      return;
-    }
-    state.pauseChecks[id] = true;
-    const checkedIndex = PAUSE_CHECKS.findIndex((item) => item.id === id);
-    if (checkedIndex === state.pauseSlideIndex && checkedIndex < PAUSE_CHECKS.length - 1) {
-      state.pauseSlideIndex = checkedIndex + 1;
-    }
-    if (checkedPauseCount() === PAUSE_CHECKS.length || checkedIndex === PAUSE_CHECKS.length - 1) {
-      state.demoStep = 4;
-      state.demoScriptIndex = 6;
-    }
+    state.pauseChecks[id] = !wasChecked;
     if (state.overview) {
       renderReadiness();
       renderPauseChecklist();
