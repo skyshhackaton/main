@@ -68,9 +68,34 @@ QA 리포트 기준:
 - `ohlc_errors`: 0
 - `value_errors`: 0
 
+## Ticker API (실시간 현재가 — 화면 표시용)
+
+PR #31에서 추가됨. 분석/점수 계산과 **완전 분리**된 display-only live snapshot.
+
+```
+GET /api/ticker?markets=KRW-BTC,KRW-ETH,KRW-XRP
+```
+
+응답 필드:
+
+| 필드 | 설명 |
+|---|---|
+| `market` | 마켓 코드 |
+| `trade_price` | 현재가 |
+| `signed_change_price` | 전일 대비 등락폭 (부호 포함) |
+| `signed_change_rate` | 전일 대비 등락률 (0.0012 = 0.12%) |
+| `acc_trade_volume_24h` | 24h 거래량 |
+| `acc_trade_price_24h` | 24h 거래대금 |
+| `timestamp` | 기준 시각 (ms) |
+
+- `markets` 생략 시 `KRW-BTC,KRW-ETH,KRW-XRP` 기본 사용
+- upstream 실패 시 `502` 반환
+- FOMO Score 계산 / `data/upbit_candles_snapshot.csv` / `crawl_report.json`과 무관
+
 ## Consumer Notes
 
 - 통계 담당은 KRW-BTC를 기본으로 Historical Mirror를 산출하고, 멀티마켓 확장 검토 시 KRW-ETH/KRW-XRP를 비교군으로 사용합니다.
 - KNN/ML 담당은 `docs/knn-integration-contract.md`의 피처 계약을 기준으로 CSV에서 피처를 구성합니다.
 - QA 담당은 `crawl_report.json`을 기준으로 데이터 결측/중복/OHLC 오류를 확인합니다.
+- 프론트엔드 담당은 현재가 카드 표시에 `/api/ticker`를 사용합니다. 이 값은 점수 계산에 사용하지 않습니다.
 - 발표 자료에는 DB 파일이 아니라 CSV/JSON export 흐름을 데이터 공유 방식으로 설명합니다.
