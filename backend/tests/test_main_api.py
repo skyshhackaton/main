@@ -1,3 +1,5 @@
+import csv
+
 from fastapi.testclient import TestClient
 
 from app import main
@@ -24,6 +26,72 @@ def _make_candles(length: int = 430) -> list[dict]:
             }
         )
     return candles
+
+
+def _write_candles_csv(path, market="KRW-BTC", candles=None) -> None:
+    candles = candles or _make_candles()
+    cols = [
+        "market",
+        "date_utc",
+        "date_kst",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "trade_price",
+        "source",
+        "crawled_at",
+    ]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=cols)
+        writer.writeheader()
+        for candle in candles:
+            writer.writerow(
+                {
+                    "market": market,
+                    "date_utc": candle["date_utc"],
+                    "date_kst": candle["date_utc"],
+                    "open": candle["open"],
+                    "high": candle["high"],
+                    "low": candle["low"],
+                    "close": candle["close"],
+                    "volume": candle["volume"],
+                    "trade_price": candle["close"],
+                    "source": "test",
+                    "crawled_at": "now",
+                }
+            )
+
+
+def test_frontend_root_serves_dashboard():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "FOMO Break" in response.text
+    assert "./app.js" in response.text
+
+
+def test_frontend_asset_serves_app_js():
+    response = client.get("/app.js")
+
+    assert response.status_code == 200
+    assert "loadDashboard" in response.text
+    assert "/api/mvp-overview" in response.text
+
+
+def test_api_falls_back_to_csv_when_db_is_empty(tmp_path, monkeypatch):
+    csv_path = tmp_path / "candles.csv"
+    _write_candles_csv(csv_path)
+    monkeypatch.setattr(main, "load_candles", lambda market: [])
+    monkeypatch.setattr(main, "DEFAULT_CSV", csv_path)
+
+    response = client.get("/api/fomo-score?market=KRW-BTC")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["market"] == "KRW-BTC"
+    assert 0 <= data["score"] <= 100
 
 
 def test_health_endpoint_includes_disclaimer():

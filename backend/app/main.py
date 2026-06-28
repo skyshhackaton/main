@@ -1,6 +1,10 @@
-﻿from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 import math
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
 
 from app.fomo_score import score_at, score_series
 from app.forecast_score import build_score_forecast
@@ -11,7 +15,10 @@ from app.knn_pattern import (
     METRICS as PATTERN_METRICS,
     build_fomo_pattern_forecast,
 )
+from app.train_common import DEFAULT_CSV, load_candles_from_csv
 from app.upbit_client import DEFAULT_MARKET, load_candles
+
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 app = FastAPI(
     title="FOMO Break API",
@@ -55,12 +62,19 @@ DECISION_PAUSE_QUESTIONS = [
 
 def _load_or_404(market: str) -> list[dict]:
     candles = load_candles(market)
-    if not candles:
-        raise HTTPException(
-            status_code=404,
-            detail=f"'{market}' 캔들 데이터가 없습니다. 먼저 데이터를 수집해주세요.",
-        )
-    return candles
+    if candles:
+        return candles
+
+    try:
+        if DEFAULT_CSV.exists():
+            return load_candles_from_csv(DEFAULT_CSV, market)
+    except (FileNotFoundError, ValueError):
+        pass
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"'{market}' 캔들 데이터가 없습니다. 먼저 데이터를 수집해주세요.",
+    )
 
 
 def _require_positive_int(name: str, value: int) -> None:
@@ -283,3 +297,12 @@ def get_knn_pattern(
         **forecast,
         "disclaimer": PATTERN_DISCLAIMER,
     }
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon() -> Response:
+    return Response(status_code=204)
+
+
+if FRONTEND_DIR.exists():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
