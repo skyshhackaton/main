@@ -105,9 +105,13 @@ def get_mvp_overview(
     mirror_days: int = 200,
     tolerance: float = 10.0,
     max_periods: int = 10,
+    include_knn: bool = False,
+    knn_neighbors: int = 5,
 ) -> dict:
     _require_positive_int("history_days", history_days)
     _require_positive_int("mirror_days", mirror_days)
+    if include_knn:
+        _require_positive_int("knn_neighbors", knn_neighbors)
 
     candles = _load_or_404(market)
     try:
@@ -116,6 +120,15 @@ def get_mvp_overview(
             tolerance=tolerance,
             days=mirror_days,
             max_periods=max_periods,
+        )
+        knn_mirror = (
+            build_knn_mirror(
+                candles,
+                n_neighbors=knn_neighbors,
+                days=mirror_days,
+            )
+            if include_knn
+            else None
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -128,6 +141,7 @@ def get_mvp_overview(
             "items": score_series(candles, history_days),
         },
         "historical_mirror": mirror,
+        "knn_mirror": knn_mirror,
         "decision_pause": {
             "items": DECISION_PAUSE_QUESTIONS,
         },
