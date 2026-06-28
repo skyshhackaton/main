@@ -195,6 +195,35 @@ const formatCompactDate = (value) => {
   return parts.length === 3 ? `${parts[1]}-${parts[2]}` : date;
 };
 
+const clampPercent = (value) => Math.max(0, Math.min(100, Number.isFinite(Number(value)) ? Number(value) : 0));
+
+function parseDate(value) {
+  const date = new Date(formatShortDate(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function daysBetween(laterValue, earlierValue) {
+  const later = parseDate(laterValue);
+  const earlier = parseDate(earlierValue);
+  if (!later || !earlier) return null;
+  return Math.max(0, Math.round((later.getTime() - earlier.getTime()) / 86400000));
+}
+
+function buildEvidenceFill({ score, ticker, topMirror, longest, historyItems }) {
+  const latestDate = historyItems?.[historyItems.length - 1]?.date;
+  const mirrorAgeDays = topMirror ? daysBetween(latestDate, topMirror.date) : null;
+  const signedChange = Number(ticker?.signed_change_rate);
+  const errorBand = Math.abs(Number(longest?.error_band));
+
+  return {
+    fomo: clampPercent(score),
+    price: Number.isFinite(signedChange) ? clampPercent(50 + signedChange * 1000) : 0,
+    mirror: mirrorAgeDays === null ? 0 : clampPercent((mirrorAgeDays / 365) * 100),
+    mirrorAgeDays,
+    error: Number.isFinite(errorBand) ? clampPercent(100 - (errorBand / 20) * 100) : 0,
+  };
+}
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -330,6 +359,7 @@ function renderDemoStage() {
   const grade = current?.grade || "데이터 대기";
   const mirrorCount = state.overview?.historical_mirror?.similar_periods?.length || 0;
   const topMirror = state.overview?.historical_mirror?.similar_periods?.[0];
+  const historyItems = state.overview?.history?.items || [];
   const forecastItems = state.forecast?.forecast || [];
   const longest = forecastItems[forecastItems.length - 1];
   const ticker = tickerForMarket(state.market);
@@ -365,6 +395,12 @@ function renderDemoStage() {
   const selectedCopy = isAttempt
     ? "수량 입력과 전송 시도는 실제 주문이 아니라 화면 안의 점검 흐름으로만 처리됩니다."
     : "가상 매수 또는 가상 매도 버튼을 먼저 선택합니다.";
+  const evidenceFill = buildEvidenceFill({ score, ticker, topMirror, longest, historyItems });
+  const mirrorAgeCopy =
+    evidenceFill.mirrorAgeDays === null
+      ? "유사 구간 확인"
+      : `${evidenceFill.mirrorAgeDays}일 전 · ${topMirror ? topMirror.grade : "참고 사례"}`;
+  const errorCopy = longest ? `작을수록 많이 표시 · ${longest.confidence_label || "참고"}` : "방향 단정 없음";
 
   $("firewallBadge").textContent = mode.badge;
   $("firewallBadge").className = mode.tone;
@@ -467,25 +503,25 @@ function renderDemoStage() {
       <em>${escapeHtml(state.market)}</em>
     </div>
     <div class="evidence-grid">
-      <div class="observation-score">
+      <div class="evidence-card observation-score" style="--fill:${evidenceFill.fomo}%">
         <span>FOMO Score</span>
         <strong>${Number.isFinite(score) ? formatScore(score) : "--"}</strong>
         <p>${escapeHtml(grade)}</p>
       </div>
-      <div class="observation-price">
+      <div class="evidence-card observation-price" style="--fill:${evidenceFill.price}%">
         <span>표시용 현재가</span>
         <strong>${ticker ? `${formatKrw(ticker.trade_price)} KRW` : "불러오는 중"}</strong>
         <p>${ticker ? formatSignedPercent(ticker.signed_change_rate) : "Upbit 공개 ticker"}</p>
       </div>
-      <div>
+      <div class="evidence-card observation-mirror" style="--fill:${evidenceFill.mirror}%">
         <span>과거 참고</span>
         <strong>${topMirror ? escapeHtml(formatShortDate(topMirror.date)) : `${mirrorCount}개`}</strong>
-        <p>${topMirror ? `${formatScore(Number(topMirror.score))} · ${escapeHtml(topMirror.grade)}` : "유사 구간 확인"}</p>
+        <p>${escapeHtml(mirrorAgeCopy)}</p>
       </div>
-      <div>
+      <div class="evidence-card observation-error" style="--fill:${evidenceFill.error}%">
         <span>오차 범위</span>
         <strong>${longest ? `±${formatScore(Number(longest.error_band))}` : "계산 중"}</strong>
-        <p>방향 단정 없음</p>
+        <p>${escapeHtml(errorCopy)}</p>
       </div>
     </div>
     <button class="stage-next-button" type="button" data-confirm-observation ${routeVisible ? "disabled" : ""}>
