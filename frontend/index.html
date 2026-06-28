@@ -60,7 +60,10 @@
         <div id="flowStepper" class="flow-stepper" aria-label="자가점검 단계"></div>
 
         <div class="workflow-grid">
-          <div id="attemptScene" class="attempt-scene neutral" aria-label="가상 행동 선택과 수량 입력"></div>
+          <div class="left-flow">
+            <div id="attemptScene" class="attempt-scene neutral" aria-label="가상 행동 선택과 수량 입력"></div>
+            <div id="observationConsole" class="observation-console" aria-label="공개 데이터 기반 관찰 화면"></div>
+          </div>
           <aside class="check-panel" aria-label="Decision Pause 자기 점검">
             <div id="intentTicket" class="intent-ticket neutral"></div>
             <div class="pause-preview">
@@ -70,10 +73,10 @@
               </div>
               <div id="quickPauseList" class="quick-pause-list"></div>
             </div>
+            <div id="decisionResult" class="decision-result" aria-live="polite"></div>
           </aside>
         </div>
 
-        <div id="observationConsole" class="observation-console" aria-label="공개 데이터 기반 관찰 화면"></div>
         <p class="guided-safety">실거래, 주문 전송, API Key 입력은 없습니다. 본 서비스는 시장 상태 관찰 도구입니다.</p>
 
         <div class="legacy-render-targets" aria-hidden="true">

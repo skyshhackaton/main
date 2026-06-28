@@ -2539,7 +2539,7 @@ button:disabled {
 
 /* Experience-first demo rebuild */
 body {
-  background: #eef3f8;
+  background: #f6f8fb;
 }
 
 .shell {
@@ -2552,7 +2552,7 @@ body {
   border: 1px solid rgba(17, 24, 39, 0.12);
   border-radius: 8px;
   background: #ffffff;
-  box-shadow: 0 18px 45px rgba(17, 24, 39, 0.08);
+  box-shadow: none;
 }
 
 .guided-app {
@@ -2571,13 +2571,17 @@ body {
 .guided-head > div,
 .guided-demo-tools,
 .flow-chip,
+.left-flow,
 .attempt-scene,
 .check-panel,
 .observation-console,
 .intent-ticket,
 .pause-preview,
+.decision-result,
 .pause-slide-card,
 .virtual-order-log,
+.route-state,
+.readiness-status-copy,
 .report-drawer summary {
   min-width: 0;
 }
@@ -2596,8 +2600,8 @@ body {
 .guided-head h2 {
   margin: 0;
   color: #111827;
-  font-size: clamp(2rem, 4vw, 3.6rem);
-  line-height: 1.02;
+  font-size: clamp(1.85rem, 3vw, 2.65rem);
+  line-height: 1.08;
   letter-spacing: 0;
 }
 
@@ -2709,9 +2713,14 @@ body {
 
 .workflow-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(330px, 0.95fr);
+  grid-template-columns: minmax(0, 1fr) minmax(500px, 0.98fr);
   gap: 14px;
-  align-items: stretch;
+  align-items: start;
+}
+
+.left-flow {
+  display: grid;
+  gap: 14px;
 }
 
 .attempt-scene {
@@ -2932,12 +2941,31 @@ body {
 
 .check-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: 14px;
+  align-items: stretch;
+}
+
+.intent-ticket {
+  grid-column: 1;
+}
+
+.pause-preview {
+  grid-column: 1;
+}
+
+.decision-result {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .intent-ticket,
 .pause-preview,
+.decision-result,
 .observation-console {
   border: 1px solid #d8e0eb;
   border-radius: 8px;
@@ -2946,13 +2974,15 @@ body {
 }
 
 .intent-ticket,
-.pause-preview {
+.pause-preview,
+.decision-result {
   padding: 14px;
 }
 
 .ticket-head,
 .pause-preview-head,
-.observation-head {
+.observation-head,
+.result-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
@@ -2966,14 +2996,17 @@ body {
 .pause-preview-head strong,
 .observation-head span,
 .observation-head strong,
-.observation-head em {
+.observation-head em,
+.result-head span,
+.result-head strong {
   display: block;
   min-width: 0;
 }
 
 .ticket-head span,
 .pause-preview-head span,
-.observation-head span {
+.observation-head span,
+.result-head span {
   color: #657386;
   font-size: 0.78rem;
   font-weight: 900;
@@ -2981,7 +3014,8 @@ body {
 
 .ticket-head strong,
 .pause-preview-head strong,
-.observation-head strong {
+.observation-head strong,
+.result-head strong {
   margin-top: 4px;
   color: #111827;
   font-size: 1.08rem;
@@ -3035,6 +3069,42 @@ body {
   overflow-wrap: anywhere;
 }
 
+.route-state {
+  display: grid;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.route-state.active {
+  border-color: #2d9b6d;
+  background: #effaf5;
+}
+
+.route-state span,
+.route-state strong {
+  display: block;
+  min-width: 0;
+}
+
+.route-state span {
+  color: #657386;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.route-state strong {
+  color: #111827;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+
 .intent-ticket p {
   margin: 10px 0;
   color: #4f5f72;
@@ -3045,7 +3115,9 @@ body {
 
 .blocked-submit,
 .slide-check,
-.pause-slide-controls > button {
+.pause-slide-controls > button,
+.finish-check,
+.report-link-button {
   width: 100%;
   height: auto;
   border-radius: 6px;
@@ -3061,6 +3133,13 @@ body {
   color: #ffffff;
 }
 
+.blocked-submit:disabled {
+  border-color: #c6d0dd;
+  background: #eef3f8;
+  color: #657386;
+  cursor: not-allowed;
+}
+
 .pause-live-status {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -3073,15 +3152,24 @@ body {
   background: #f8fafc;
 }
 
-.pause-live-status > div:first-child {
-  display: grid;
+.readiness-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   place-items: center;
-  width: 76px;
-  height: 76px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at center, #ffffff 0 56%, transparent 58%),
-    conic-gradient(#2d9b6d var(--ready, 0%), #d8e0eb 0);
+  background: conic-gradient(var(--ready-color, #2d9b6d) var(--ready, 0%), #d8e0eb 0);
+}
+
+.readiness-ring::after {
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: #ffffff;
+  content: "";
 }
 
 .pause-live-status span,
@@ -3092,22 +3180,33 @@ body {
 
 .pause-live-status span {
   color: #657386;
-  font-size: 0.64rem;
+  font-size: 0.78rem;
   font-weight: 900;
 }
 
 .pause-live-status strong {
+  position: relative;
+  z-index: 1;
   color: #111827;
-  font-size: 1.25rem;
+  font-size: 1.55rem;
   line-height: 1;
 }
 
 .pause-live-status p {
+  margin-top: 4px;
   color: #4f5f72;
   font-size: 0.84rem;
   line-height: 1.35;
   overflow-wrap: break-word;
   white-space: normal;
+}
+
+.pause-live-status.warn {
+  --ready-color: #c9891b;
+}
+
+.pause-live-status.alert {
+  --ready-color: #c94f4f;
 }
 
 .pause-progress {
@@ -3170,6 +3269,14 @@ body {
   background: #2d9b6d;
 }
 
+.slide-check:disabled,
+.finish-check:disabled {
+  border-color: #c6d0dd;
+  background: #eef3f8;
+  color: #657386;
+  cursor: not-allowed;
+}
+
 .pause-slide-controls {
   display: grid;
   grid-template-columns: minmax(76px, auto) minmax(0, 1fr) minmax(76px, auto);
@@ -3213,8 +3320,41 @@ body {
 }
 
 .observation-console {
-  margin-top: 14px;
+  margin-top: 0;
   padding: 14px;
+}
+
+.finish-check {
+  min-height: 42px;
+  padding: 9px 12px;
+  border-color: #2d9b6d;
+  background: #effaf5;
+  color: #176449;
+}
+
+.decision-result {
+  background: #f8fafc;
+}
+
+.decision-result.active {
+  border-color: #2d9b6d;
+  background: #effaf5;
+}
+
+.decision-result p {
+  margin: 10px 0;
+  color: #4f5f72;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+
+.report-link-button {
+  min-height: 42px;
+  padding: 9px 12px;
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
 }
 
 .evidence-grid {
@@ -3338,8 +3478,16 @@ body {
   }
 
   .check-panel {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-template-rows: auto;
+    align-items: start;
+  }
+
+  .intent-ticket,
+  .pause-preview,
+  .decision-result {
+    grid-column: auto;
+    grid-row: auto;
   }
 }
 
@@ -3355,8 +3503,10 @@ body {
   .virtual-order-form,
   .check-panel,
   .ticket-head,
+  .route-state,
   .pause-preview-head,
   .observation-head,
+  .result-head,
   .report-drawer summary {
     grid-template-columns: 1fr;
   }
@@ -3385,8 +3535,8 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .pause-live-status > div:first-child {
-    width: 82px;
-    height: 82px;
+  .readiness-ring {
+    width: 86px;
+    height: 86px;
   }
 }
