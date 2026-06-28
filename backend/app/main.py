@@ -1,8 +1,11 @@
 ﻿from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import math
 
 from app.fomo_score import score_at, score_series
+from app.forecast_score import build_score_forecast
 from app.historical_mirror import build_historical_mirror
+from app.knn_mirror import build_knn_mirror
 from app.upbit_client import DEFAULT_MARKET, load_candles
 
 app = FastAPI(
@@ -55,6 +58,16 @@ def _load_or_404(market: str) -> list[dict]:
     return candles
 
 
+def _require_positive_int(name: str, value: int) -> None:
+    if value <= 0:
+        raise HTTPException(status_code=400, detail=f"{name} must be positive")
+
+
+def _require_non_negative_number(name: str, value: float) -> None:
+    if not math.isfinite(value) or value < 0:
+        raise HTTPException(status_code=400, detail=f"{name} must be non-negative")
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "fomo-break-api"}
@@ -73,6 +86,7 @@ def get_fomo_score(market: str = DEFAULT_MARKET) -> dict:
 
 @app.get("/api/fomo-history")
 def get_fomo_history(market: str = DEFAULT_MARKET, days: int = 200) -> dict:
+    _require_positive_int("days", days)
     candles = _load_or_404(market)
     return {
         "market": market,
@@ -97,9 +111,15 @@ def get_mvp_overview(
     mirror_days: int = 200,
     tolerance: float = 10.0,
     max_periods: int = 10,
+    include_knn: bool = False,
+    knn_neighbors: int = 5,
 ) -> dict:
-    if history_days <= 0:
-        raise HTTPException(status_code=400, detail="history_days must be positive")
+    _require_positive_int("history_days", history_days)
+    _require_positive_int("mirror_days", mirror_days)
+    _require_non_negative_number("tolerance", tolerance)
+    _require_positive_int("max_periods", max_periods)
+    if include_knn:
+        _require_positive_int("knn_neighbors", knn_neighbors)
 
     candles = _load_or_404(market)
     try:
@@ -108,6 +128,15 @@ def get_mvp_overview(
             tolerance=tolerance,
             days=mirror_days,
             max_periods=max_periods,
+        )
+        knn_mirror = (
+            build_knn_mirror(
+                candles,
+                n_neighbors=knn_neighbors,
+                days=mirror_days,
+            )
+            if include_knn
+            else None
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -120,6 +149,7 @@ def get_mvp_overview(
             "items": score_series(candles, history_days),
         },
         "historical_mirror": mirror,
+        "knn_mirror": knn_mirror,
         "decision_pause": {
             "items": DECISION_PAUSE_QUESTIONS,
         },
@@ -135,6 +165,9 @@ def get_historical_mirror(
     days: int = 200,
     max_periods: int = 20,
 ) -> dict:
+    _require_non_negative_number("tolerance", tolerance)
+    _require_positive_int("days", days)
+    _require_positive_int("max_periods", max_periods)
     candles = _load_or_404(market)
     try:
         mirror = build_historical_mirror(
@@ -142,6 +175,62 @@ def get_historical_mirror(
             tolerance=tolerance,
             days=days,
             max_periods=max_periods,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "market": market,
+        **mirror,
+        "disclaimer": HISTORY_DISCLAIMER,
+    }
+
+
+FORECAST_DISCLAIMER = (
+    "예측 대상은 시장 심리 상태값(FOMO Score)이며 가격·수익률 예측이 아닙니다. "
+    "참고용 관찰 지표일 뿐 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
+)
+
+
+@app.get("/api/score-forecast")
+def get_score_forecast(
+    market: str = DEFAULT_MARKET,
+    lags: int = 5,
+    days: int = 200,
+) -> dict:
+    _require_positive_int("lags", lags)
+    _require_positive_int("days", days)
+    candles = _load_or_404(market)
+    try:
+        forecast = build_score_forecast(
+            candles,
+            lags=lags,
+            days=days,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "market": market,
+        **forecast,
+        "disclaimer": FORECAST_DISCLAIMER,
+    }
+
+
+@app.get("/api/knn-mirror")
+def get_knn_mirror(
+    market: str = DEFAULT_MARKET,
+    n_neighbors: int = 5,
+    days: int = 200,
+) -> dict:
+    _require_positive_int("n_neighbors", n_neighbors)
+    _require_positive_int("days", days)
+    candles = _load_or_404(market)
+    try:
+        mirror = build_knn_mirror(
+            candles,
+            n_neighbors=n_neighbors,
+            days=days,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

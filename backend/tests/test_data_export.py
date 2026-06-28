@@ -78,6 +78,7 @@ def test_build_crawl_report_includes_validation(tmp_path):
     report = data_export.build_crawl_report(["KRW-BTC"], db)
 
     assert report["source"] == "upbit"
+    assert "run_id" in report
     assert report["markets"] == ["KRW-BTC"]
     btc = report["results"]["KRW-BTC"]
     assert btc["rows"] == 5
@@ -113,6 +114,7 @@ def test_export_all_writes_both_files(tmp_path):
     saved = json.loads(report_path.read_text(encoding="utf-8"))
     assert saved["results"]["KRW-BTC"]["rows"] == 4
     assert saved["source"] == "upbit"
+    assert saved["run_id"] == result["report"]["run_id"]
 
 
 def test_export_empty_market_produces_header_only(tmp_path):

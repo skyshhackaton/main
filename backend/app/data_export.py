@@ -44,6 +44,11 @@ def _now_utc_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _run_id_from_crawled_at(crawled_at: str) -> str:
+    dt = datetime.fromisoformat(crawled_at.replace("Z", "+00:00"))
+    return dt.astimezone(timezone.utc).strftime("%Y%m%d_%H%M")
+
+
 def export_candles_csv(
     out_path: Path,
     markets: list[str] | None = None,
@@ -100,6 +105,7 @@ def build_crawl_report(
 
     return {
         "crawled_at": crawled_at,
+        "run_id": _run_id_from_crawled_at(crawled_at),
         "source": SOURCE,
         "markets": markets,
         "results": per_market,

@@ -8,12 +8,16 @@ investment advice or a forecast.
 
 from __future__ import annotations
 
+import math
 from statistics import pstdev
 from typing import Iterable
 
 from app.fomo_score import classify_grade, score_at, score_series
 
 DEFAULT_HORIZONS = (3, 7, 30)
+MIRROR_METHOD = "score_tolerance"
+MIRROR_METHOD_LABEL = "조건 매칭"
+COMPARISON_BASIS = ("fomo_score",)
 
 
 def _future_return(candles: list[dict], index: int, horizon: int) -> float | None:
@@ -73,13 +77,15 @@ def build_historical_mirror(
     """
     if not candles:
         raise ValueError("candles must not be empty")
-    if tolerance < 0:
+    if not math.isfinite(tolerance) or tolerance < 0:
         raise ValueError("tolerance must be non-negative")
     if days <= 0:
         raise ValueError("days must be positive")
     if max_periods <= 0:
         raise ValueError("max_periods must be positive")
-    if current_score is not None and not 0 <= current_score <= 100:
+    if current_score is not None and (
+        not math.isfinite(current_score) or not 0 <= current_score <= 100
+    ):
         raise ValueError("current_score must be between 0 and 100")
 
     series = score_series(candles, days=days)
@@ -117,6 +123,9 @@ def build_historical_mirror(
         "current_date": series[-1]["date"],
         "current_score": round(target_score, 2),
         "current_grade": current_grade,
+        "method": MIRROR_METHOD,
+        "method_label": MIRROR_METHOD_LABEL,
+        "comparison_basis": list(COMPARISON_BASIS),
         "tolerance": tolerance,
         "similar_periods": visible_periods,
         "stats": _summarize_returns(matches),
