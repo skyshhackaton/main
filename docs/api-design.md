@@ -58,7 +58,7 @@ Query:
 | 이름 | 기본값 | 설명 |
 |---|---|---|
 | market | KRW-BTC | 업비트 마켓 코드 |
-| days | 200 | 반환 일수 |
+| days | 200 | 반환 일수, 양수 |
 
 Response draft:
 
@@ -104,8 +104,8 @@ Query:
 | 이름 | 기본값 | 설명 |
 |---|---|---|
 | market | KRW-BTC | 업비트 마켓 코드 |
-| history_days | 200 | 히스토리 차트 반환 일수 |
-| mirror_days | 200 | 유사 구간 탐색 시계열 길이 |
+| history_days | 200 | 히스토리 차트 반환 일수, 양수 |
+| mirror_days | 200 | 유사 구간 탐색 시계열 길이, 양수 |
 | tolerance | 10 | 현재 점수와 유사하다고 볼 점수 범위 |
 | max_periods | 10 | 응답에 포함할 최대 유사 구간 수 |
 

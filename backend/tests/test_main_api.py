@@ -78,6 +78,15 @@ def test_mvp_overview_endpoint_rejects_invalid_args(monkeypatch):
 
     response = client.get("/api/mvp-overview?market=KRW-BTC&mirror_days=0")
     assert response.status_code == 400
+    assert response.json()["detail"] == "mirror_days must be positive"
+
+
+def test_fomo_history_endpoint_rejects_invalid_days(monkeypatch):
+    monkeypatch.setattr(main, "load_candles", lambda market: _make_candles())
+
+    response = client.get("/api/fomo-history?market=KRW-BTC&days=0")
+
+    assert response.status_code == 400
     assert response.json()["detail"] == "days must be positive"
 
 

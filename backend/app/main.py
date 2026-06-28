@@ -55,6 +55,11 @@ def _load_or_404(market: str) -> list[dict]:
     return candles
 
 
+def _require_positive_int(name: str, value: int) -> None:
+    if value <= 0:
+        raise HTTPException(status_code=400, detail=f"{name} must be positive")
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "fomo-break-api"}
@@ -73,6 +78,7 @@ def get_fomo_score(market: str = DEFAULT_MARKET) -> dict:
 
 @app.get("/api/fomo-history")
 def get_fomo_history(market: str = DEFAULT_MARKET, days: int = 200) -> dict:
+    _require_positive_int("days", days)
     candles = _load_or_404(market)
     return {
         "market": market,
@@ -98,8 +104,8 @@ def get_mvp_overview(
     tolerance: float = 10.0,
     max_periods: int = 10,
 ) -> dict:
-    if history_days <= 0:
-        raise HTTPException(status_code=400, detail="history_days must be positive")
+    _require_positive_int("history_days", history_days)
+    _require_positive_int("mirror_days", mirror_days)
 
     candles = _load_or_404(market)
     try:
