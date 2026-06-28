@@ -1,10 +1,35 @@
 const API_BASE = "http://127.0.0.1:8000";
+const MARKETS = ["KRW-BTC", "KRW-ETH", "KRW-XRP"];
+const PAUSE_CHECKS = [
+  {
+    id: "evidence",
+    title: "근거",
+    copy: "가격 움직임 말고 확인한 정보가 있습니다.",
+  },
+  {
+    id: "timing",
+    title: "시점",
+    copy: "늦게 관심이 생긴 것인지 구분했습니다.",
+  },
+  {
+    id: "boundary",
+    title: "범위",
+    copy: "감당 가능한 범위와 바꿀 조건을 말할 수 있습니다.",
+  },
+  {
+    id: "cooldown",
+    title: "시간",
+    copy: "지금 바로 판단하지 않아도 되는 시간을 확보했습니다.",
+  },
+];
 
 const state = {
   market: "KRW-BTC",
   overview: null,
   forecast: null,
   health: null,
+  marketSnapshots: [],
+  pauseChecks: Object.fromEntries(PAUSE_CHECKS.map((item) => [item.id, false])),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -54,6 +79,10 @@ function gradeTone(score) {
   return "neutral";
 }
 
+function checkedPauseCount() {
+  return Object.values(state.pauseChecks).filter(Boolean).length;
+}
+
 function renderCurrent() {
   const current = state.overview.current;
   const score = Number(current.score);
@@ -79,6 +108,50 @@ function renderCurrent() {
     .join("");
 }
 
+function renderMarketRadar() {
+  const snapshots = state.marketSnapshots;
+  if (!snapshots.length) {
+    $("marketRadar").innerHTML = "";
+    $("radarSummary").textContent = "계산 중";
+    return;
+  }
+
+  const scores = snapshots.map((item) => Number(item.current.score));
+  const spread = Math.max(...scores) - Math.min(...scores);
+  const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  let label = "분산 관찰";
+  let tone = "warn";
+  if (spread < 8) {
+    label = "동조 관찰";
+    tone = "neutral";
+  } else if (spread > 18) {
+    label = "마켓별 차이 큼";
+    tone = "alert";
+  }
+  $("radarSummary").textContent = `${label} · 평균 ${formatScore(average)}`;
+  $("radarSummary").className = `pill ${tone}`;
+
+  $("marketRadar").innerHTML = snapshots
+    .map((item) => {
+      const score = Number(item.current.score);
+      const isActive = item.market === state.market;
+      return `
+        <button class="market-card ${isActive ? "active" : ""}" type="button" data-market="${escapeHtml(item.market)}">
+          <div class="market-card-top">
+            <div>
+              <div class="market-name">${escapeHtml(item.market)}</div>
+              <div class="card-meta">${escapeHtml(item.current.grade)}</div>
+            </div>
+            <div class="market-score">${formatScore(score)}</div>
+          </div>
+          <div class="market-bar" aria-hidden="true"><span style="width:${Math.max(0, Math.min(100, score))}%"></span></div>
+          <p class="market-note">${escapeHtml(item.current.description)}</p>
+        </button>
+      `;
+    })
+    .join("");
+}
+
 function computeReadiness() {
   const score = Number(state.overview.current.score);
   const mirrorCount = state.overview.historical_mirror?.similar_periods?.length || 0;
@@ -86,6 +159,7 @@ function computeReadiness() {
   const longest = forecastItems[forecastItems.length - 1];
   const withinBand = longest?.trend_direction === "within_error_band";
   const confidence = longest?.confidence_level;
+  const pauseCount = checkedPauseCount();
 
   let readiness = 72;
   if (score >= 80 || score <= 20) readiness -= 18;
@@ -94,6 +168,7 @@ function computeReadiness() {
   if (!withinBand) readiness -= 12;
   if (confidence === "low") readiness -= 10;
   if (confidence === "high") readiness += 4;
+  readiness += pauseCount * 4;
   readiness = Math.max(28, Math.min(92, readiness));
 
   let label = "점검 양호";
@@ -113,7 +188,7 @@ function computeReadiness() {
     ? "FOMO Score 참고값이 오차 범위 안에 있어 방향을 단정하지 않습니다."
     : "FOMO Score 참고값이 오차 범위를 벗어나도 가격이나 수익률 전망은 아닙니다.";
 
-  return { readiness, label, tone, title, copy, withinBand, mirrorCount, confidence };
+  return { readiness, label, tone, title, copy, withinBand, mirrorCount, confidence, pauseCount };
 }
 
 function renderReadiness() {
@@ -125,6 +200,22 @@ function renderReadiness() {
   $("readinessLabel").className = `pill ${info.tone}`;
   $("readinessTitle").textContent = info.title;
   $("readinessCopy").textContent = info.copy;
+
+  $("readinessBreakdown").innerHTML = [
+    ["오차", info.withinBand ? "범위 안" : "범위 밖"],
+    ["과거", `${info.mirrorCount}개`],
+    ["신뢰", info.confidence === "low" ? "낮음" : info.confidence === "high" ? "높음" : "보통"],
+    ["점검", `${info.pauseCount}/${PAUSE_CHECKS.length}`],
+  ]
+    .map(
+      ([label, value]) => `
+        <div class="breakdown-item">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `,
+    )
+    .join("");
 
   const checks = [
     {
@@ -249,6 +340,34 @@ function renderForecast() {
     .join("");
 }
 
+function renderUncertaintyLens() {
+  const currentScore = Number(state.forecast?.current_score ?? state.overview.current.score);
+  const items = state.forecast?.forecast || [];
+  $("uncertaintyLens").innerHTML = items
+    .map((item) => {
+      const predicted = Number(item.predicted_score);
+      const error = Number(item.error_band || 0);
+      const bandStart = Math.max(0, predicted - error);
+      const bandEnd = Math.min(100, predicted + error);
+      const bandWidth = Math.max(1, bandEnd - bandStart);
+      return `
+        <div class="band-row">
+          <div class="band-head">
+            <span>${item.horizon_days}일</span>
+            <span>${escapeHtml(item.trend_label)} · 오차 ${formatScore(error)}</span>
+          </div>
+          <div class="band-track" aria-hidden="true">
+            <span class="band-error" style="left:${bandStart}%; width:${bandWidth}%"></span>
+            <span class="band-current" style="left:${Math.max(0, Math.min(100, currentScore))}%"></span>
+            <span class="band-predicted" style="left:${Math.max(0, Math.min(100, predicted))}%"></span>
+          </div>
+          <p class="band-caption">현재 점수와 참고값의 차이를 백테스트 오차 범위와 함께 확인합니다.</p>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 function renderPause() {
   const items = state.overview.decision_pause?.items || [];
   $("pauseList").innerHTML = items
@@ -263,12 +382,26 @@ function renderPause() {
     .join("");
 }
 
+function renderPauseChecklist() {
+  $("pauseChecklist").innerHTML = PAUSE_CHECKS.map(
+    (item) => `
+      <button class="pause-toggle" type="button" data-check-id="${escapeHtml(item.id)}" aria-pressed="${state.pauseChecks[item.id]}">
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(item.copy)}</span>
+      </button>
+    `,
+  ).join("");
+}
+
 function renderAll() {
+  renderMarketRadar();
   renderCurrent();
   renderReadiness();
   renderChart();
   renderMirror();
+  renderUncertaintyLens();
   renderForecast();
+  renderPauseChecklist();
   renderPause();
   $("disclaimerText").textContent =
     state.overview.disclaimer || state.health?.disclaimer || "시장 상태 관찰 도구입니다.";
@@ -283,16 +416,24 @@ async function loadDashboard() {
   setLoading(true);
   try {
     const market = state.market;
-    const [health, overview, forecast] = await Promise.all([
+    const [health, overview, forecast, marketSnapshots] = await Promise.all([
       fetchJson("/api/health"),
       fetchJson(
         `/api/mvp-overview?market=${encodeURIComponent(market)}&history_days=120&mirror_days=200&tolerance=10&max_periods=5`,
       ),
       fetchJson(`/api/score-forecast?market=${encodeURIComponent(market)}&days=200`),
+      Promise.all(
+        MARKETS.map((item) =>
+          fetchJson(
+            `/api/mvp-overview?market=${encodeURIComponent(item)}&history_days=30&mirror_days=120&tolerance=10&max_periods=3`,
+          ),
+        ),
+      ),
     ]);
     state.health = health;
     state.overview = overview;
     state.forecast = forecast;
+    state.marketSnapshots = marketSnapshots;
     setLoading(false);
     renderAll();
   } catch (error) {
@@ -308,5 +449,24 @@ $("marketSelect").addEventListener("change", (event) => {
 });
 
 $("refreshBtn").addEventListener("click", loadDashboard);
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-check-id]");
+  if (button) {
+    const id = button.getAttribute("data-check-id");
+    state.pauseChecks[id] = !state.pauseChecks[id];
+    renderReadiness();
+    renderPauseChecklist();
+    return;
+  }
+
+  const marketCard = event.target.closest("[data-market]");
+  if (!marketCard) return;
+  const market = marketCard.getAttribute("data-market");
+  if (market === state.market) return;
+  state.market = market;
+  $("marketSelect").value = market;
+  loadDashboard();
+});
 
 loadDashboard();
