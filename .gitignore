@@ -44,3 +44,6 @@ Thumbs.db
 *.pem
 *.key
 secrets/
+
+# Internal team docs (not for publishing)
+docs/team-roles-and-prompts.md
