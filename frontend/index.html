@@ -36,195 +36,188 @@
         <span id="updatedAt">-</span>
       </section>
 
-      <section class="demo-stage" aria-label="2분 시연용 판단 방화벽">
-        <div class="demo-copy">
-          <span class="demo-eyebrow">주요 기능</span>
-          <h2>가상 주문 차단 및 판단 점검</h2>
-          <p>
-            가상 매수·매도 입력을 실제 주문으로 보내지 않고, 공개 데이터 확인과 Decision Pause로 전환합니다.
-          </p>
-          <div class="demo-kpi-row" aria-label="시연 안전 상태">
-            <div>
-              <span>DATA</span>
-              <strong>Public API</strong>
-            </div>
-            <div>
-              <span>KEY</span>
-              <strong>Not Used</strong>
-            </div>
-            <div>
-              <span>ORDER</span>
-              <strong>Blocked</strong>
+      <section class="guided-app" aria-label="판단 전 자기 점검 플로우">
+        <div class="guided-head">
+          <div>
+            <span class="guided-eyebrow">Live Demo</span>
+            <h2>판단 전 자기 점검</h2>
+            <p>가상 행동을 선택하면 실제 주문 대신 공개 데이터 확인과 Decision Pause로 이동합니다.</p>
+          </div>
+          <div class="guided-demo-tools">
+            <button id="demoAutoBtn" class="demo-run-btn" type="button">90초 시연</button>
+            <div class="demo-livebar" aria-label="자동 시연 진행률">
+              <div>
+                <strong id="demoClock">00:00 / 01:30</strong>
+                <span id="demoCaption">직접 단계별로 진행할 수 있습니다.</span>
+              </div>
+              <div class="demo-progress-track" aria-hidden="true">
+                <span id="demoProgress"></span>
+              </div>
             </div>
           </div>
-          <div class="demo-livebar" aria-label="자동 시연 진행률">
-            <div>
-              <strong id="demoClock">00:00 / 01:30</strong>
-              <span id="demoCaption">발표 속도에 맞춰 천천히 전환됩니다.</span>
-            </div>
-            <div class="demo-progress-track" aria-hidden="true">
-              <span id="demoProgress"></span>
-            </div>
-          </div>
-          <div class="demo-actions">
-            <button class="intent-btn active" type="button" data-intent-mode="observe">관찰 모드</button>
-            <button class="intent-btn" type="button" data-intent-mode="buy">가상 매수 시도</button>
-            <button class="intent-btn" type="button" data-intent-mode="sell">가상 매도 시도</button>
-            <button id="demoAutoBtn" class="demo-run-btn" type="button">90초 가이드 시작</button>
-          </div>
-          <p class="demo-note">실거래, 주문 전송, API Key 입력은 없습니다.</p>
         </div>
 
-        <div class="firewall-panel">
-          <div class="firewall-status">
-            <span id="firewallBadge">실거래 연결 없음</span>
-            <strong id="intentTitle">판단 전에 관찰값을 먼저 정리합니다.</strong>
-            <p id="intentCopy">시장 점수, 과거 유사 구간, 오차 범위, 현재가 표시값을 한 번에 확인합니다.</p>
-          </div>
-          <div id="attemptScene" class="attempt-scene neutral" aria-label="Decision Pause 전 가상 매수 매도 시도 화면"></div>
-          <div class="simulator-surface" aria-label="가상 행동과 Decision Pause 화면">
+        <div id="flowStepper" class="flow-stepper" aria-label="자가점검 단계"></div>
+
+        <div class="workflow-grid">
+          <div id="attemptScene" class="attempt-scene neutral" aria-label="가상 행동 선택과 수량 입력"></div>
+          <aside class="check-panel" aria-label="Decision Pause 자기 점검">
             <div id="intentTicket" class="intent-ticket neutral"></div>
             <div class="pause-preview">
               <div class="pause-preview-head">
                 <span>Decision Pause</span>
-                <strong>자기 점검</strong>
+                <strong>한 문항씩 확인</strong>
               </div>
               <div id="quickPauseList" class="quick-pause-list"></div>
             </div>
+          </aside>
+        </div>
+
+        <div id="observationConsole" class="observation-console" aria-label="공개 데이터 기반 관찰 화면"></div>
+        <p class="guided-safety">실거래, 주문 전송, API Key 입력은 없습니다. 본 서비스는 시장 상태 관찰 도구입니다.</p>
+
+        <div class="legacy-render-targets" aria-hidden="true">
+          <span id="firewallBadge">실거래 연결 없음</span>
+          <strong id="intentTitle">판단 전에 관찰값을 먼저 정리합니다.</strong>
+          <p id="intentCopy">시장 점수, 과거 유사 구간, 오차 범위, 현재가 표시값을 확인합니다.</p>
+          <div id="orderTerminal" class="order-terminal neutral">
+            <span id="terminalLabel">ORDER ROUTE</span>
+            <strong id="terminalAction">CLOSED</strong>
+            <p id="terminalCopy">공개 데이터 관찰값만 화면에 표시합니다.</p>
           </div>
-          <div id="observationConsole" class="observation-console" aria-label="공개 데이터 기반 관찰 화면"></div>
-          <div class="firewall-lockup">
-            <div id="orderTerminal" class="order-terminal neutral">
-              <span id="terminalLabel">ORDER ROUTE</span>
-              <strong id="terminalAction">CLOSED</strong>
-              <p id="terminalCopy">공개 데이터 관찰값만 화면에 표시합니다.</p>
-            </div>
-            <div id="demoScript" class="demo-script"></div>
-          </div>
-          <div id="demoFlow" class="demo-flow" aria-label="시연 단계"></div>
+          <div id="demoScript" class="demo-script"></div>
+          <div id="demoFlow" class="demo-flow"></div>
           <div id="intentEvidence" class="intent-evidence"></div>
         </div>
       </section>
 
-      <section class="signal-strip" aria-label="FOMO Break evidence flow">
-        <div>
-          <strong>관찰</strong>
-          <span>현재 심리 상태</span>
-        </div>
-        <div>
-          <strong>비교</strong>
-          <span>세 마켓 동조 여부</span>
-        </div>
-        <div>
-          <strong>오차</strong>
-          <span>흐름 참고값의 범위</span>
-        </div>
-        <div>
-          <strong>멈춤</strong>
-          <span>자기 점검</span>
-        </div>
-      </section>
-
-      <section class="market-radar-section">
-        <div class="section-heading">
-          <div>
-            <h2>시장 레이더</h2>
-            <p>BTC·ETH·XRP의 심리 쏠림이 같은 방향인지 함께 봅니다.</p>
-          </div>
-          <span id="radarSummary" class="pill neutral">계산 중</span>
-        </div>
-        <div id="marketRadar" class="market-radar"></div>
-      </section>
-
-      <section class="hero-grid">
-        <article class="score-panel">
-          <div class="panel-heading">
-            <p>현재 시장 상태</p>
-            <span id="currentGrade" class="pill">-</span>
-          </div>
-          <div class="score-row">
-            <div id="scoreValue" class="score-value">--</div>
-            <div class="score-meter" aria-hidden="true">
-              <div id="scoreNeedle" class="score-needle"></div>
-            </div>
-          </div>
-          <p id="scoreDescription" class="score-description">데이터를 불러오는 중입니다.</p>
-          <div id="indicatorBars" class="indicator-bars"></div>
-        </article>
-
-        <article class="readiness-panel">
-          <div class="panel-heading">
-            <p>판단 준비도</p>
-            <span id="readinessLabel" class="pill neutral">점검 중</span>
-          </div>
-          <div class="readiness-main">
-            <div id="readinessValue" class="readiness-value">--</div>
+      <details class="report-drawer">
+        <summary>
+          <span>보고서 파트 보기</span>
+          <strong>시장 레이더, 점수 흐름, 과거 참고 사례</strong>
+        </summary>
+        <div class="report-content">
+          <section class="signal-strip" aria-label="FOMO Break evidence flow">
             <div>
-              <p id="readinessTitle" class="readiness-title">정보와 감정을 나누어 보는 중입니다.</p>
-              <p id="readinessCopy" class="readiness-copy">점수, 과거 사례, 오차 범위를 함께 확인합니다.</p>
+              <strong>관찰</strong>
+              <span>현재 심리 상태</span>
             </div>
-          </div>
-          <div id="readinessBreakdown" class="readiness-breakdown"></div>
-          <div class="check-grid" id="checkGrid"></div>
-        </article>
-      </section>
-
-      <section class="chart-section">
-        <div class="section-heading">
-          <div>
-            <h2>최근 FOMO Score 흐름</h2>
-            <p>단일 수치보다 흐름과 변동 폭을 함께 봅니다.</p>
-          </div>
-          <span id="historyRange" class="muted-label">최근 120일</span>
-        </div>
-        <div class="chart-wrap">
-          <svg id="historyChart" viewBox="0 0 900 260" role="img" aria-label="최근 FOMO Score 차트"></svg>
-        </div>
-      </section>
-
-      <section class="insight-grid">
-        <article>
-          <div class="section-heading compact">
             <div>
-              <h2>과거 유사 구간</h2>
-              <p>현재와 비슷했던 시장 심리 구간입니다.</p>
+              <strong>비교</strong>
+              <span>세 마켓 동조 여부</span>
             </div>
-          </div>
-          <div id="mirrorList" class="mirror-list"></div>
-        </article>
-
-        <article>
-          <div class="section-heading compact">
             <div>
-              <h2>FOMO Score 흐름 참고</h2>
-              <p>오차 범위를 먼저 보고 방향을 단정하지 않습니다.</p>
+              <strong>오차</strong>
+              <span>흐름 참고값의 범위</span>
             </div>
-          </div>
-          <div id="uncertaintyLens" class="uncertainty-lens"></div>
-          <div id="forecastList" class="forecast-list"></div>
-          <div class="subsection-heading">
-            <h3>KNN 패턴 참고</h3>
-            <p>현재 FOMO 흐름과 닮았던 과거 패턴의 분포입니다.</p>
-          </div>
-          <div id="patternList" class="pattern-list"></div>
-        </article>
-      </section>
+            <div>
+              <strong>멈춤</strong>
+              <span>자기 점검</span>
+            </div>
+          </section>
 
-      <section class="pause-section">
-        <div class="section-heading">
-          <div>
-            <h2>Decision Pause</h2>
-            <p>지금 판단의 근거가 정보인지 감정인지 확인합니다.</p>
-          </div>
+          <section class="market-radar-section">
+            <div class="section-heading">
+              <div>
+                <h2>시장 레이더</h2>
+                <p>BTC·ETH·XRP의 심리 쏠림이 같은 방향인지 함께 봅니다.</p>
+              </div>
+              <span id="radarSummary" class="pill neutral">계산 중</span>
+            </div>
+            <div id="marketRadar" class="market-radar"></div>
+          </section>
+
+          <section class="hero-grid">
+            <article class="score-panel">
+              <div class="panel-heading">
+                <p>현재 시장 상태</p>
+                <span id="currentGrade" class="pill">-</span>
+              </div>
+              <div class="score-row">
+                <div id="scoreValue" class="score-value">--</div>
+                <div class="score-meter" aria-hidden="true">
+                  <div id="scoreNeedle" class="score-needle"></div>
+                </div>
+              </div>
+              <p id="scoreDescription" class="score-description">데이터를 불러오는 중입니다.</p>
+              <div id="indicatorBars" class="indicator-bars"></div>
+            </article>
+
+            <article class="readiness-panel">
+              <div class="panel-heading">
+                <p>판단 준비도</p>
+                <span id="readinessLabel" class="pill neutral">점검 중</span>
+              </div>
+              <div class="readiness-main">
+                <div id="readinessValue" class="readiness-value">--</div>
+                <div>
+                  <p id="readinessTitle" class="readiness-title">정보와 감정을 나누어 보는 중입니다.</p>
+                  <p id="readinessCopy" class="readiness-copy">점수, 과거 사례, 오차 범위를 함께 확인합니다.</p>
+                </div>
+              </div>
+              <div id="readinessBreakdown" class="readiness-breakdown"></div>
+              <div class="check-grid" id="checkGrid"></div>
+            </article>
+          </section>
+
+          <section class="chart-section">
+            <div class="section-heading">
+              <div>
+                <h2>최근 FOMO Score 흐름</h2>
+                <p>단일 수치보다 흐름과 변동 폭을 함께 봅니다.</p>
+              </div>
+              <span id="historyRange" class="muted-label">최근 120일</span>
+            </div>
+            <div class="chart-wrap">
+              <svg id="historyChart" viewBox="0 0 900 260" role="img" aria-label="최근 FOMO Score 차트"></svg>
+            </div>
+          </section>
+
+          <section class="insight-grid">
+            <article>
+              <div class="section-heading compact">
+                <div>
+                  <h2>과거 유사 구간</h2>
+                  <p>현재와 비슷했던 시장 심리 구간입니다.</p>
+                </div>
+              </div>
+              <div id="mirrorList" class="mirror-list"></div>
+            </article>
+
+            <article>
+              <div class="section-heading compact">
+                <div>
+                  <h2>FOMO Score 흐름 참고</h2>
+                  <p>오차 범위를 먼저 보고 방향을 단정하지 않습니다.</p>
+                </div>
+              </div>
+              <div id="uncertaintyLens" class="uncertainty-lens"></div>
+              <div id="forecastList" class="forecast-list"></div>
+              <div class="subsection-heading">
+                <h3>KNN 패턴 참고</h3>
+                <p>현재 FOMO 흐름과 닮았던 과거 패턴의 분포입니다.</p>
+              </div>
+              <div id="patternList" class="pattern-list"></div>
+            </article>
+          </section>
+
+          <section class="pause-section">
+            <div class="section-heading">
+              <div>
+                <h2>Decision Pause 상세</h2>
+                <p>지금 판단의 근거가 정보인지 감정인지 확인합니다.</p>
+              </div>
+            </div>
+            <div id="pauseChecklist" class="pause-checklist"></div>
+            <div id="pauseList" class="pause-list"></div>
+          </section>
+
+          <section class="disclaimer-box">
+            <strong>주의</strong>
+            <p id="disclaimerText">본 서비스는 시장 상태 관찰 도구이며 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다.</p>
+          </section>
         </div>
-        <div id="pauseChecklist" class="pause-checklist"></div>
-        <div id="pauseList" class="pause-list"></div>
-      </section>
-
-      <section class="disclaimer-box">
-        <strong>주의</strong>
-        <p id="disclaimerText">본 서비스는 시장 상태 관찰 도구이며 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다.</p>
-      </section>
+      </details>
     </main>
 
     <script src="./app.js"></script>
