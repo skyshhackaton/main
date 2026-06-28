@@ -570,6 +570,7 @@ button:disabled {
 
 .mirror-list,
 .forecast-list,
+.pattern-list,
 .pause-list {
   display: grid;
   gap: 10px;
@@ -577,6 +578,7 @@ button:disabled {
 
 .mirror-card,
 .forecast-card,
+.pattern-card,
 .pause-card {
   padding: 14px;
   border: 1px solid var(--line);
@@ -631,6 +633,48 @@ button:disabled {
 .forecast-card.featured {
   border-color: rgba(27, 138, 143, 0.45);
   background: #f7fbfb;
+}
+
+.subsection-heading {
+  margin: 18px 0 10px;
+}
+
+.subsection-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.subsection-heading p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.pattern-card.featured {
+  border-color: rgba(53, 107, 179, 0.35);
+  background: #f8fbff;
+}
+
+.pattern-path {
+  position: relative;
+  height: 94px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(201, 79, 79, 0.08), transparent 38%, transparent 62%, rgba(53, 107, 179, 0.08)),
+    repeating-linear-gradient(90deg, #edf1f6 0 1px, transparent 1px 20%);
+}
+
+.pattern-path span {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+  transform: translate(-4px, -4px);
 }
 
 .uncertainty-lens {
@@ -766,11 +810,22 @@ button:disabled {
 }
 
 .error-box {
+  display: inline-block;
   padding: 16px;
   border: 1px solid rgba(201, 79, 79, 0.3);
   border-radius: 8px;
   background: #fff3f3;
   color: #8a2d2d;
+}
+
+.empty-state {
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 @media (max-width: 860px) {

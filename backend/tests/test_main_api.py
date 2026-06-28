@@ -1,3 +1,5 @@
+import csv
+
 from fastapi.testclient import TestClient
 
 from app import main
@@ -24,6 +26,72 @@ def _make_candles(length: int = 430) -> list[dict]:
             }
         )
     return candles
+
+
+def _write_candles_csv(path, market="KRW-BTC", candles=None) -> None:
+    candles = candles or _make_candles()
+    cols = [
+        "market",
+        "date_utc",
+        "date_kst",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "trade_price",
+        "source",
+        "crawled_at",
+    ]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=cols)
+        writer.writeheader()
+        for candle in candles:
+            writer.writerow(
+                {
+                    "market": market,
+                    "date_utc": candle["date_utc"],
+                    "date_kst": candle["date_utc"],
+                    "open": candle["open"],
+                    "high": candle["high"],
+                    "low": candle["low"],
+                    "close": candle["close"],
+                    "volume": candle["volume"],
+                    "trade_price": candle["close"],
+                    "source": "test",
+                    "crawled_at": "now",
+                }
+            )
+
+
+def test_frontend_root_serves_dashboard():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "FOMO Break" in response.text
+    assert "./app.js" in response.text
+
+
+def test_frontend_asset_serves_app_js():
+    response = client.get("/app.js")
+
+    assert response.status_code == 200
+    assert "loadDashboard" in response.text
+    assert "/api/mvp-overview" in response.text
+
+
+def test_api_falls_back_to_csv_when_db_is_empty(tmp_path, monkeypatch):
+    csv_path = tmp_path / "candles.csv"
+    _write_candles_csv(csv_path)
+    monkeypatch.setattr(main, "load_candles", lambda market: [])
+    monkeypatch.setattr(main, "DEFAULT_CSV", csv_path)
+
+    response = client.get("/api/fomo-score?market=KRW-BTC")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["market"] == "KRW-BTC"
+    assert 0 <= data["score"] <= 100
 
 
 def test_health_endpoint_includes_disclaimer():
@@ -165,6 +233,35 @@ def test_score_forecast_endpoint_rejects_invalid_args(monkeypatch):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "lags must be positive"
+
+
+def test_knn_pattern_endpoint_returns_scenarios(monkeypatch):
+    monkeypatch.setattr(main, "load_candles", lambda market: _make_candles())
+
+    response = client.get("/api/knn-pattern?market=KRW-BTC&window=10&horizon=7&k=5&metric=raw")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["market"] == "KRW-BTC"
+    assert data["k"] == 5
+    assert data["metric"] == "raw"
+    assert len(data["candidates"]) == 5
+    assert len(data["band"]["mean"]) == 7
+    assert "투자 추천" in data["disclaimer"]
+    forbidden = " ".join([data["summary"], data["disclaimer"]])
+    assert not any(word in forbidden for word in FORBIDDEN_INVESTMENT_WORDS)
+
+
+def test_knn_pattern_endpoint_rejects_invalid_args(monkeypatch):
+    monkeypatch.setattr(main, "load_candles", lambda market: _make_candles())
+
+    response = client.get("/api/knn-pattern?market=KRW-BTC&k=0")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "k must be positive"
+
+    response = client.get("/api/knn-pattern?market=KRW-BTC&metric=cosine")
+    assert response.status_code == 400
+    assert "metric must be one of" in response.json()["detail"]
 
 
 def test_score_forecast_endpoint_exposes_uncertainty_fields(monkeypatch):

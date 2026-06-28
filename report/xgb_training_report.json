@@ -1,0 +1,181 @@
+{
+  "market": "KRW-BTC",
+  "csv_path": "C:\\Users\\juwon\\Desktop\\skysh-2026-hackaton\\data\\upbit_candles_history.csv",
+  "n_candles": 2200,
+  "n_scored": 1835,
+  "xgboost_fomo_forecast": {
+    "model": "XGBRegressor (per-horizon direct forecast)",
+    "lags": 5,
+    "n_splits": 5,
+    "feature_names": [
+      "score_lag_4",
+      "score_lag_3",
+      "score_lag_2",
+      "score_lag_1",
+      "score_lag_0",
+      "change_rate_1d",
+      "volume_ratio_5_20",
+      "rsi_14"
+    ],
+    "horizons": {
+      "1": {
+        "n_samples": 1830,
+        "cv_mae": 3.9711,
+        "cv_rmse": 4.9527,
+        "cv_mae_std": 0.2498,
+        "baseline_persist_mae": 3.7706,
+        "feature_importances": {
+          "score_lag_4": 0.0143,
+          "score_lag_3": 0.0143,
+          "score_lag_2": 0.0146,
+          "score_lag_1": 0.3671,
+          "score_lag_0": 0.4979,
+          "change_rate_1d": 0.0421,
+          "volume_ratio_5_20": 0.0144,
+          "rsi_14": 0.0353
+        }
+      },
+      "3": {
+        "n_samples": 1828,
+        "cv_mae": 6.6573,
+        "cv_rmse": 8.4577,
+        "cv_mae_std": 0.3783,
+        "baseline_persist_mae": 6.9794,
+        "feature_importances": {
+          "score_lag_4": 0.0476,
+          "score_lag_3": 0.0322,
+          "score_lag_2": 0.0436,
+          "score_lag_1": 0.2642,
+          "score_lag_0": 0.4173,
+          "change_rate_1d": 0.0681,
+          "volume_ratio_5_20": 0.047,
+          "rsi_14": 0.0799
+        }
+      },
+      "7": {
+        "n_samples": 1824,
+        "cv_mae": 8.8007,
+        "cv_rmse": 11.2933,
+        "cv_mae_std": 0.527,
+        "baseline_persist_mae": 9.6897,
+        "feature_importances": {
+          "score_lag_4": 0.0945,
+          "score_lag_3": 0.072,
+          "score_lag_2": 0.0638,
+          "score_lag_1": 0.2205,
+          "score_lag_0": 0.3166,
+          "change_rate_1d": 0.0549,
+          "volume_ratio_5_20": 0.0991,
+          "rsi_14": 0.0787
+        }
+      }
+    }
+  },
+  "disclaimer": "학습/예측 대상은 시장 심리 상태값(FOMO Score)이며 가격·수익률 예측이 아닙니다. 모델 성능 참고치일 뿐 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다.",
+  "xgboost_tuned": {
+    "model": "XGBRegressor (grid-tuned)",
+    "lags": 5,
+    "n_splits": 5,
+    "param_grid": {
+      "n_estimators": [
+        200,
+        400
+      ],
+      "max_depth": [
+        2,
+        3,
+        4
+      ],
+      "learning_rate": [
+        0.05,
+        0.1
+      ],
+      "subsample": [
+        0.8,
+        1.0
+      ]
+    },
+    "n_candidates": 24,
+    "feature_names": [
+      "score_lag_4",
+      "score_lag_3",
+      "score_lag_2",
+      "score_lag_1",
+      "score_lag_0",
+      "change_rate_1d",
+      "volume_ratio_5_20",
+      "rsi_14"
+    ],
+    "horizons": {
+      "1": {
+        "n_samples": 1830,
+        "best_params": {
+          "learning_rate": 0.05,
+          "max_depth": 2,
+          "n_estimators": 400,
+          "subsample": 0.8
+        },
+        "cv_mae": 3.9122,
+        "cv_rmse": 4.8949,
+        "baseline_persist_mae": 3.7706,
+        "skill_vs_persist": -0.0375,
+        "feature_importances": {
+          "score_lag_4": 0.0129,
+          "score_lag_3": 0.0134,
+          "score_lag_2": 0.0115,
+          "score_lag_1": 0.014,
+          "score_lag_0": 0.899,
+          "change_rate_1d": 0.0165,
+          "volume_ratio_5_20": 0.0115,
+          "rsi_14": 0.0211
+        }
+      },
+      "3": {
+        "n_samples": 1828,
+        "best_params": {
+          "learning_rate": 0.05,
+          "max_depth": 2,
+          "n_estimators": 200,
+          "subsample": 0.8
+        },
+        "cv_mae": 6.5901,
+        "cv_rmse": 8.3861,
+        "baseline_persist_mae": 6.9794,
+        "skill_vs_persist": 0.0558,
+        "feature_importances": {
+          "score_lag_4": 0.0618,
+          "score_lag_3": 0.033,
+          "score_lag_2": 0.044,
+          "score_lag_1": 0.0342,
+          "score_lag_0": 0.5662,
+          "change_rate_1d": 0.0787,
+          "volume_ratio_5_20": 0.0432,
+          "rsi_14": 0.1387
+        }
+      },
+      "7": {
+        "n_samples": 1824,
+        "best_params": {
+          "learning_rate": 0.05,
+          "max_depth": 2,
+          "n_estimators": 200,
+          "subsample": 0.8
+        },
+        "cv_mae": 8.7559,
+        "cv_rmse": 11.1914,
+        "baseline_persist_mae": 9.6897,
+        "skill_vs_persist": 0.0964,
+        "feature_importances": {
+          "score_lag_4": 0.1613,
+          "score_lag_3": 0.0715,
+          "score_lag_2": 0.1173,
+          "score_lag_1": 0.1916,
+          "score_lag_0": 0.2656,
+          "change_rate_1d": 0.0435,
+          "volume_ratio_5_20": 0.0727,
+          "rsi_14": 0.0765
+        }
+      }
+    }
+  }
+}

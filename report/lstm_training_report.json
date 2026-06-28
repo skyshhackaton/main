@@ -1,0 +1,58 @@
+{
+  "market": "KRW-BTC",
+  "csv_path": "C:\\Users\\juwon\\Desktop\\skysh-2026-hackaton\\data\\upbit_candles_history.csv",
+  "n_scored": 1835,
+  "model": "LSTM(50,tanh) + opt Input Dense + Dense(1)",
+  "tuned": true,
+  "results": [
+    {
+      "horizon": 1,
+      "n_candidates": 8,
+      "window": 20,
+      "hidden": 50,
+      "input_dense": 32,
+      "dropout": 0.0,
+      "epochs": 150,
+      "lr": 0.01,
+      "n_params": 16915,
+      "train_samples": 1270,
+      "val_samples": 545,
+      "val_mae": 3.7365,
+      "persist_mae": 3.8074,
+      "skill": 0.0186
+    },
+    {
+      "horizon": 7,
+      "n_candidates": 8,
+      "window": 20,
+      "hidden": 50,
+      "input_dense": 32,
+      "dropout": 0.2,
+      "epochs": 150,
+      "lr": 0.01,
+      "n_params": 16915,
+      "train_samples": 1266,
+      "val_samples": 543,
+      "val_mae": 8.7609,
+      "persist_mae": 9.8099,
+      "skill": 0.1069
+    },
+    {
+      "horizon": 30,
+      "n_candidates": 8,
+      "window": 20,
+      "hidden": 50,
+      "input_dense": 0,
+      "dropout": 0.2,
+      "epochs": 150,
+      "lr": 0.01,
+      "n_params": 10651,
+      "train_samples": 1250,
+      "val_samples": 536,
+      "val_mae": 10.2267,
+      "persist_mae": 13.0654,
+      "skill": 0.2173
+    }
+  ],
+  "disclaimer": "학습/예측 대상은 시장 심리 상태값(FOMO Score)이며 가격·수익률 예측이 아닙니다. 모델 성능 참고치일 뿐 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
+}
