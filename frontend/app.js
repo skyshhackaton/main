@@ -339,6 +339,8 @@ function renderDemoStage() {
   const isSell = ticketMode === "sell";
   const isAttempt = isBuy || isSell;
   const selectedAction = isBuy ? "BUY INTENT" : isSell ? "SELL INTENT" : "INTENT READY";
+  const virtualQuantity = state.virtualQuantity || "";
+  const virtualLog = state.virtualOrderLog;
   const pauseSlideIndex = Math.max(0, Math.min(PAUSE_CHECKS.length - 1, state.pauseSlideIndex || 0));
   state.pauseSlideIndex = pauseSlideIndex;
   const activePause = PAUSE_CHECKS[pauseSlideIndex];
@@ -356,8 +358,6 @@ function renderDemoStage() {
   const selectedCopy = isAttempt
     ? "수량 입력과 전송 시도는 실제 주문이 아니라 화면 안의 점검 흐름으로만 처리됩니다."
     : "가상 매수 또는 가상 매도 버튼을 먼저 선택합니다.";
-  const virtualQuantity = state.virtualQuantity || "";
-  const virtualLog = state.virtualOrderLog;
 
   $("firewallBadge").textContent = mode.badge;
   $("firewallBadge").className = mode.tone;
