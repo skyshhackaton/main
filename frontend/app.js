@@ -126,6 +126,8 @@ const state = {
   demoStartedAt: null,
   demoScriptIndex: 0,
   demoTimers: [],
+  virtualQuantity: "0.05",
+  virtualOrderLog: null,
   pauseChecks: Object.fromEntries(PAUSE_CHECKS.map((item) => [item.id, false])),
 };
 
@@ -304,8 +306,10 @@ function renderDemoStage() {
   const selectedAction = isBuy ? "BUY INTENT" : isSell ? "SELL INTENT" : "INTENT READY";
   const selectedLabel = isBuy ? "가상 매수 시도" : isSell ? "가상 매도 시도" : "가상 행동 대기";
   const selectedCopy = isAttempt
-    ? "아래 장면은 사용자가 행동 버튼을 누른 직후입니다. 실거래 입력창으로 보내지 않고 Decision Pause 전 단계에서 멈춥니다."
+    ? "아래 장면은 사용자가 행동 버튼을 누른 직후입니다. 가상 수량 입력과 전송 시도는 화면 안에서만 처리됩니다."
     : "가상 매수 또는 가상 매도 버튼을 누르면, 이 영역이 실제 사용 장면처럼 바뀝니다.";
+  const virtualQuantity = state.virtualQuantity || "";
+  const virtualLog = state.virtualOrderLog;
 
   $("firewallBadge").textContent = mode.badge;
   $("firewallBadge").className = mode.tone;
@@ -343,12 +347,12 @@ function renderDemoStage() {
       <button class="attempt-card buy ${isBuy ? "active" : ""}" type="button" data-intent-mode="buy">
         <span>가상 매수 화면</span>
         <strong>${isBuy ? "시도 감지" : "대기"}</strong>
-        <small>수량 입력 없음 · 주문 전송 없음</small>
+        <small>가상 수량 입력 · 실제 주문 없음</small>
       </button>
       <button class="attempt-card sell ${isSell ? "active" : ""}" type="button" data-intent-mode="sell">
         <span>가상 매도 화면</span>
         <strong>${isSell ? "시도 감지" : "대기"}</strong>
-        <small>API Key 없음 · 실거래 연결 없음</small>
+        <small>전송 시도 차단 · API Key 없음</small>
       </button>
       <div class="attempt-terminal ${mode.tone}">
         <span>${escapeHtml(selectedLabel)}</span>
@@ -359,6 +363,30 @@ function renderDemoStage() {
           <div><dt>FOMO Score</dt><dd>${Number.isFinite(score) ? formatScore(score) : "--"}</dd></div>
         </dl>
       </div>
+    </div>
+    <form class="virtual-order-form" aria-label="화면 시연용 가상 주문 입력">
+      <label>
+        <span>가상 수량</span>
+        <input
+          id="virtualQuantityInput"
+          type="number"
+          min="0"
+          step="0.0001"
+          inputmode="decimal"
+          value="${escapeHtml(virtualQuantity)}"
+          placeholder="0.05"
+          ${isAttempt ? "" : "disabled"}
+        />
+      </label>
+      <button class="virtual-submit ${mode.tone}" type="button" data-virtual-submit ${isAttempt ? "" : "disabled"}>
+        가상 주문 전송 시도
+      </button>
+      <p>${isAttempt ? "입력값은 저장되지 않고, 클릭 즉시 Decision Pause 전 차단 로그로만 남습니다." : "먼저 가상 매수 또는 가상 매도 화면을 선택합니다."}</p>
+    </form>
+    <div class="virtual-order-log ${virtualLog ? mode.tone : "neutral"}" aria-live="polite">
+      <span>${virtualLog ? "차단 로그" : "대기 로그"}</span>
+      <strong>${virtualLog ? escapeHtml(virtualLog.title) : "가상 주문 전송 시도 전"}</strong>
+      <p>${virtualLog ? escapeHtml(virtualLog.copy) : "수량 입력과 전송 버튼은 실제 거래가 아니라 Decision Pause 시연을 위한 화면 요소입니다."}</p>
     </div>
     <div class="attempt-route" aria-label="가상 시도 이후 흐름">
       <div class="${isAttempt && state.demoStep >= 0 ? "active" : ""}"><span>1</span><strong>가상 시도</strong></div>
@@ -412,7 +440,7 @@ function renderDemoStage() {
   const ticketCopy =
     ticketMode === "observe"
       ? "왼쪽 버튼이나 아래 탭으로 가상 행동을 선택하면 실제 주문 대신 점검 화면이 열립니다."
-      : "이 화면은 주문 입력 화면처럼 보이지만 주문 전송, 수량 입력, API Key 입력이 없습니다.";
+      : "이 화면은 주문 입력 화면처럼 보이지만 실제 주문 전송과 API Key 입력은 없습니다. 수량은 시연용 입력값입니다.";
   $("intentTicket").className = `intent-ticket ${mode.tone}`;
   $("intentTicket").innerHTML = `
     <div class="ticket-head">
@@ -997,6 +1025,7 @@ async function loadDashboard() {
 
 $("marketSelect").addEventListener("change", (event) => {
   state.market = event.target.value;
+  state.virtualOrderLog = null;
   loadDashboard();
 });
 
@@ -1004,11 +1033,29 @@ $("refreshBtn").addEventListener("click", loadDashboard);
 $("demoAutoBtn").addEventListener("click", runDemoSequence);
 
 document.addEventListener("click", (event) => {
+  const virtualSubmit = event.target.closest("[data-virtual-submit]");
+  if (virtualSubmit) {
+    event.preventDefault();
+    const mode = state.intentMode === "sell" ? "sell" : "buy";
+    const label = mode === "sell" ? "가상 매도" : "가상 매수";
+    const amount = String(state.virtualQuantity || "").trim() || "미입력";
+    state.intentMode = mode;
+    state.demoStep = Math.max(state.demoStep, 1);
+    state.demoScriptIndex = mode === "sell" ? 5 : 2;
+    state.virtualOrderLog = {
+      title: `${label} ${amount} 입력 후 차단`,
+      copy: "화면 안에서 전송 시도만 기록했습니다. Upbit 주문 API, API Key, Secret Key는 사용하지 않습니다.",
+    };
+    renderDemoStage();
+    return;
+  }
+
   const intentButton = event.target.closest("[data-intent-mode]");
   if (intentButton) {
     clearDemoTimers();
     const mode = intentButton.getAttribute("data-intent-mode");
     state.demoScriptIndex = mode === "buy" ? 1 : mode === "sell" ? 5 : 0;
+    if (mode !== state.intentMode) state.virtualOrderLog = null;
     setIntentMode(mode, 0);
     return;
   }
@@ -1030,8 +1077,14 @@ document.addEventListener("click", (event) => {
   const market = marketCard.getAttribute("data-market");
   if (market === state.market) return;
   state.market = market;
+  state.virtualOrderLog = null;
   $("marketSelect").value = market;
   loadDashboard();
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.id !== "virtualQuantityInput") return;
+  state.virtualQuantity = event.target.value;
 });
 
 loadDashboard();
