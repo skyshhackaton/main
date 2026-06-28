@@ -13,7 +13,8 @@ http://localhost:8000
 ```json
 {
   "status": "ok",
-  "service": "fomo-break-api"
+  "service": "fomo-break-api",
+  "disclaimer": "본 지수는 시장 상태 관찰 도구이며 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
 }
 ```
 
