@@ -23,3 +23,4 @@ uvicorn app.main:app --reload
 - `GET /api/health`
 - `GET /api/fomo-score?market=KRW-BTC`
 - `GET /api/fomo-history?market=KRW-BTC`
+- `GET /api/historical-mirror?market=KRW-BTC`

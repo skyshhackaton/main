@@ -5,6 +5,7 @@ MVP rule: use public endpoints only. Do not accept or store user API keys.
 
 import asyncio
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -113,8 +114,152 @@ def load_candles(market: str = DEFAULT_MARKET, db_path: Path = DB_PATH) -> list[
         conn.close()
 
 
-async def refresh_candles(market: str = DEFAULT_MARKET) -> int:
-    """API에서 최신 캔들 수집 후 DB 저장. 저장된 개수 반환."""
+async def refresh_candles(market: str = DEFAULT_MARKET, db_path: Path = DB_PATH) -> int:
+    """API에서 전체 캔들(target개) 수집 후 DB 저장. 저장된 개수 반환."""
     raw = await fetch_all_candles(market)
     normalized = [_normalize(c) for c in raw]
-    return save_candles(normalized, market)
+    return save_candles(normalized, market, db_path)
+
+
+# ---------------------------------------------------------------------------
+# 증분 갱신 / 멀티 마켓
+# ---------------------------------------------------------------------------
+
+async def fetch_new_candles(
+    market: str, since_date_utc: str, inclusive: bool = True, max_pages: int = 20
+) -> list[dict]:
+    """
+    since_date_utc 이후의 캔들 수집 (oldest-first 반환).
+    inclusive=True면 since_date_utc 당일도 포함(>=) — DB에 저장된 마지막 날의
+    partial candle(예: 오늘 일봉)을 최신 종가로 다시 받아 덮어쓰기 위함.
+    inclusive=False면 다음 날부터(>).
+    최신 페이지부터 거슬러 올라가다 경계(통과 못하는 캔들)에 닿으면 중단.
+
+    참고: candle_date_time_utc는 'YYYY-MM-DDTHH:MM:SS' 고정폭 포맷이라
+    문자열 사전식 비교가 시간순 비교와 동일하게 안전하다. 전 함수가 UTC 기준.
+    """
+    def keep(c: dict) -> bool:
+        ts = c["candle_date_time_utc"]
+        return ts >= since_date_utc if inclusive else ts > since_date_utc
+
+    collected: list[dict] = []
+    to: str | None = None
+
+    for _ in range(max_pages):
+        page = await fetch_day_candles(market, 200, to)
+        if not page:
+            break
+        new = [c for c in page if keep(c)]
+        collected.extend(new)
+        # 페이지 안에서 경계를 만났으면(이미 가진 데이터 도달) 중단
+        if len(new) < len(page):
+            break
+        to = page[-1]["candle_date_time_utc"].replace("T", " ")
+        await asyncio.sleep(0.15)  # rate limit 보호
+
+    dedup = {c["candle_date_time_utc"]: c for c in collected}
+    return sorted(dedup.values(), key=lambda c: c["candle_date_time_utc"])
+
+
+async def update_candles(market: str = DEFAULT_MARKET, db_path: Path = DB_PATH) -> int:
+    """
+    증분 갱신. 신규로 추가된 날짜 수를 반환.
+    - DB가 비어 있으면 전체 수집(refresh_candles)으로 폴백.
+    - 마지막 저장일을 포함(inclusive)해 다시 받아 덮어씀 → 오늘 partial candle이
+      종가로 갱신되어 stale 방지. INSERT OR REPLACE라 중복은 생기지 않음.
+    - 신규 날짜가 없으면(오늘 캔들만 갱신) 0을 반환하지만, 오늘 캔들 값은 최신화됨.
+    """
+    existing = load_candles(market, db_path)
+    if not existing:
+        return await refresh_candles(market, db_path)
+
+    existing_dates = {c["date_utc"] for c in existing}
+    last_date = existing[-1]["date_utc"]
+    raw_new = await fetch_new_candles(market, last_date, inclusive=True)
+    if not raw_new:
+        return 0
+
+    normalized = [_normalize(c) for c in raw_new]
+    save_candles(normalized, market, db_path)
+    # 재수집한 마지막 날(덮어쓰기)은 제외하고 '진짜 신규' 날짜만 카운트
+    return sum(1 for c in normalized if c["date_utc"] not in existing_dates)
+
+
+async def refresh_markets(
+    markets: list[str], db_path: Path = DB_PATH
+) -> dict[str, int | dict]:
+    """
+    여러 마켓을 증분 갱신. 마켓별로 독립 처리하여 한 마켓 실패가 전체를
+    중단시키지 않는다.
+    반환: {market: 신규 캔들 수} (성공) 또는 {market: {"error": ...}} (실패).
+    예: {"KRW-BTC": 3, "KRW-ETH": {"error": "ConnectError", "detail": "..."}, "KRW-XRP": 5}
+    """
+    results: dict[str, int | dict] = {}
+    for market in markets:
+        try:
+            results[market] = await update_candles(market, db_path)
+        except Exception as exc:  # noqa: BLE001 - 마켓별 격리가 목적
+            results[market] = {"error": type(exc).__name__, "detail": str(exc)}
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 데이터 검증
+# ---------------------------------------------------------------------------
+
+def validate_candles(candles: list[dict]) -> dict:
+    """
+    캔들 무결성 검증 리포트 반환.
+    검증: 결측일 / 중복일 / OHLC 논리 위반 / 비정상 값.
+    입력은 _normalize 형식 (date_utc, open, high, low, close, volume).
+    """
+    missing_dates: list[str] = []
+    duplicate_dates: list[str] = []
+    ohlc_errors: list[dict] = []
+    value_errors: list[dict] = []
+
+    dates = [c["date_utc"] for c in candles]
+
+    # 중복 날짜
+    seen: set[str] = set()
+    for d in dates:
+        if d in seen:
+            duplicate_dates.append(d)
+        seen.add(d)
+
+    # 날짜 연속성 (일 단위 결측)
+    parsed = sorted({datetime.fromisoformat(d).date() for d in dates})
+    if parsed:
+        present = set(parsed)
+        cur, last = parsed[0], parsed[-1]
+        while cur <= last:
+            if cur not in present:
+                missing_dates.append(cur.isoformat())
+            cur += timedelta(days=1)
+
+    # OHLC 논리 + 값 검증
+    for c in candles:
+        o, h, l, cl = c["open"], c["high"], c["low"], c["close"]
+        date = c["date_utc"]
+        if h < l:
+            ohlc_errors.append({"date": date, "reason": "high < low"})
+        else:
+            if not (l <= o <= h):
+                ohlc_errors.append({"date": date, "reason": "open out of [low, high]"})
+            if not (l <= cl <= h):
+                ohlc_errors.append({"date": date, "reason": "close out of [low, high]"})
+
+        if any(c[k] <= 0 for k in ("open", "high", "low", "close")):
+            value_errors.append({"date": date, "reason": "non-positive price"})
+        if c["volume"] < 0:
+            value_errors.append({"date": date, "reason": "negative volume"})
+
+    ok = not (missing_dates or duplicate_dates or ohlc_errors or value_errors)
+    return {
+        "ok": ok,
+        "count": len(candles),
+        "missing_dates": missing_dates,
+        "duplicate_dates": duplicate_dates,
+        "ohlc_errors": ohlc_errors,
+        "value_errors": value_errors,
+    }
