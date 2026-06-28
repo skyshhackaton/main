@@ -181,14 +181,20 @@ GET http://localhost:8000/api/score-forecast?market=KRW-BTC
 
 ### Frontend
 
-프론트엔드는 MVP 화면 구현 시점에 확정합니다. 기준 화면은 다음 흐름을 따릅니다.
+정적 HTML/CSS/JS 기반 MVP 화면입니다. 백엔드를 먼저 실행한 뒤 별도 터미널에서 프론트엔드 정적 서버를 띄웁니다.
 
-1. 현재 FOMO Score 카드
-2. 구성 요소별 점수 바
-3. 200일 히스토리 차트
-4. Historical Mirror 카드
-5. Decision Pause 질문
-6. 면책 문구
+```powershell
+cd frontend
+python -m http.server 5173
+```
+
+브라우저에서 확인:
+
+```text
+http://127.0.0.1:5173
+```
+
+화면은 현재 FOMO Score, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `오차 범위`, `과거 유사 구간`, `자기 점검 질문`을 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
 
 ---
 
