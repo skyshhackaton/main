@@ -60,6 +60,12 @@ FOMO Break는 이 중 **공포와 탐욕** 및 **초보 투자자의 경험 비�
 손실 허용 범위와 판단 근거를 말로 설명할 수 있나요?
 ```
 
+### 4. Judgment Firewall
+
+프론트엔드의 가상 매수/매도 시도 버튼은 실제 주문으로 연결되지 않습니다.
+
+대신 사용자의 행동 의도를 `시도 인식 -> 실거래 차단 -> 근거 분리 -> 일시정지` 흐름으로 바꾸고, FOMO Score, 과거 참고 사례, 오차 범위, 표시용 현재가, Decision Pause 체크리스트를 한 화면에서 확인하게 합니다.
+
 ---
 
 ## 수상 전략
@@ -97,12 +103,10 @@ FOMO Break는 이 중 **공포와 탐욕** 및 **초보 투자자의 경험 비�
 
 ### Frontend
 
-MVP 구현 후보:
-
-- Framework: Vite + React
-- Language: TypeScript
-- Chart: Recharts 또는 lightweight chart library
-- Styling: Tailwind CSS 또는 CSS Modules
+- 정적 HTML/CSS/JavaScript
+- FastAPI 정적 파일 서빙으로 백엔드와 같은 origin에서 실행
+- SVG 기반 FOMO Score 흐름 차트
+- Judgment Firewall, 시장 레이더, Historical Mirror, Decision Pause 통합 화면
 
 ### Data / API
 
@@ -203,7 +207,9 @@ python -m http.server 5173
 http://127.0.0.1:5173
 ```
 
-화면은 현재 FOMO Score, 표시용 현재가, 시장 레이더, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, KNN 패턴 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `세 마켓 비교`, `오차 범위`, `과거 유사 구간`, `패턴 분포`, `자기 점검 체크리스트`를 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
+화면은 Judgment Firewall, 현재 FOMO Score, 표시용 현재가, 시장 레이더, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, KNN 패턴 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `가상 행동 시도 차단`, `세 마켓 비교`, `오차 범위`, `과거 유사 구간`, `패턴 분포`, `자기 점검 체크리스트`를 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
+
+2분 이내 시연 영상에서는 `가상 매수 시도`와 `가상 매도 시도`를 눌러 실제 주문 전송 없이 판단 점검 흐름으로 전환되는 모습을 보여줍니다. 자세한 녹화 순서는 [frontend/README.md](frontend/README.md)를 참고합니다.
 
 ---
 

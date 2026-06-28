@@ -23,6 +23,34 @@ const PAUSE_CHECKS = [
   },
 ];
 
+const INTENT_MODES = {
+  observe: {
+    badge: "관찰 모드",
+    title: "판단 전에 관찰값을 먼저 정리합니다.",
+    copy: "시장 점수, 과거 유사 구간, 오차 범위, 현재가 표시값을 한 번에 확인합니다.",
+    tone: "neutral",
+  },
+  buy: {
+    badge: "가상 매수 시도 차단",
+    title: "실제 주문 대신 Decision Pause가 열렸습니다.",
+    copy: "가격 움직임에 반응한 판단인지, 확인한 정보에 근거한 판단인지 먼저 분리합니다.",
+    tone: "warn",
+  },
+  sell: {
+    badge: "가상 매도 시도 차단",
+    title: "실제 주문 대신 근거 점검으로 전환했습니다.",
+    copy: "불안이나 급한 반응인지, 미리 정한 관찰 기준인지 확인합니다.",
+    tone: "alert",
+  },
+};
+
+const DEMO_FLOW = [
+  ["시도 인식", "사용자가 가상 행동 버튼을 누릅니다."],
+  ["실거래 차단", "주문 전송과 API Key 입력은 없습니다."],
+  ["근거 분리", "점수·오차·과거 사례를 함께 봅니다."],
+  ["일시정지", "Decision Pause 질문으로 마무리합니다."],
+];
+
 const state = {
   market: "KRW-BTC",
   overview: null,
@@ -32,6 +60,9 @@ const state = {
   health: null,
   marketSnapshots: [],
   errors: {},
+  intentMode: "observe",
+  demoStep: 0,
+  demoTimers: [],
   pauseChecks: Object.fromEntries(PAUSE_CHECKS.map((item) => [item.id, false])),
 };
 
@@ -139,6 +170,7 @@ function setError(error) {
   $("patternList").innerHTML = "";
   $("pauseChecklist").innerHTML = "";
   $("pauseList").innerHTML = "";
+  renderDemoStage();
 }
 
 function gradeTone(score) {
@@ -151,6 +183,99 @@ function gradeTone(score) {
 
 function checkedPauseCount() {
   return Object.values(state.pauseChecks).filter(Boolean).length;
+}
+
+function tickerForMarket(market) {
+  return (state.ticker?.items || []).find((item) => item.market === market);
+}
+
+function clearDemoTimers() {
+  state.demoTimers.forEach((timer) => window.clearTimeout(timer));
+  state.demoTimers = [];
+  const button = $("demoAutoBtn");
+  if (button) button.textContent = "2분 데모 시작";
+}
+
+function setIntentMode(mode, step = 3) {
+  state.intentMode = mode;
+  state.demoStep = step;
+  renderDemoStage();
+}
+
+function renderDemoStage() {
+  const mode = INTENT_MODES[state.intentMode] || INTENT_MODES.observe;
+  const current = state.overview?.current;
+  const score = Number(current?.score);
+  const grade = current?.grade || "데이터 대기";
+  const mirrorCount = state.overview?.historical_mirror?.similar_periods?.length || 0;
+  const forecastItems = state.forecast?.forecast || [];
+  const longest = forecastItems[forecastItems.length - 1];
+  const ticker = tickerForMarket(state.market);
+  const pauseCount = checkedPauseCount();
+
+  $("firewallBadge").textContent = mode.badge;
+  $("firewallBadge").className = mode.tone;
+  $("intentTitle").textContent = mode.title;
+  $("intentCopy").textContent = mode.copy;
+
+  document.querySelectorAll("[data-intent-mode]").forEach((button) => {
+    button.classList.toggle("active", button.getAttribute("data-intent-mode") === state.intentMode);
+  });
+
+  $("demoFlow").innerHTML = DEMO_FLOW.map(
+    ([title, copy], index) => `
+      <div class="flow-step ${index <= state.demoStep ? "active" : ""}">
+        <span>${index + 1}</span>
+        <strong>${escapeHtml(title)}</strong>
+        <p>${escapeHtml(copy)}</p>
+      </div>
+    `,
+  ).join("");
+
+  $("intentEvidence").innerHTML = [
+    ["FOMO Score", Number.isFinite(score) ? `${formatScore(score)} · ${grade}` : grade],
+    ["과거 참고", mirrorCount ? `${mirrorCount}개 유사 구간` : "표본 확인 중"],
+    [
+      "오차 범위",
+      longest
+        ? `${longest.trend_label} · ±${formatScore(Number(longest.error_band))}`
+        : "참고값 확인 중",
+    ],
+    [
+      "표시용 현재가",
+      ticker ? `${formatKrw(ticker.trade_price)} KRW · ${formatSignedPercent(ticker.signed_change_rate)}` : "불러오는 중",
+    ],
+    ["자기 점검", `${pauseCount}/${PAUSE_CHECKS.length}개 확인`],
+  ]
+    .map(
+      ([label, value]) => `
+        <div>
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function runDemoSequence() {
+  clearDemoTimers();
+  const button = $("demoAutoBtn");
+  button.textContent = "시연 진행 중";
+  const script = [
+    [0, "observe", 0],
+    [900, "buy", 1],
+    [1900, "buy", 2],
+    [3100, "buy", 3],
+    [4700, "sell", 1],
+    [6100, "sell", 3],
+  ];
+  state.demoTimers = script.map(([delay, mode, step]) =>
+    window.setTimeout(() => setIntentMode(mode, step), delay),
+  );
+  state.demoTimers.push(window.setTimeout(() => {
+    button.textContent = "2분 데모 시작";
+  }, 7600));
 }
 
 function renderCurrent() {
@@ -555,6 +680,7 @@ function renderPauseChecklist() {
 }
 
 function renderAll() {
+  renderDemoStage();
   renderMarketRadar();
   renderCurrent();
   renderReadiness();
@@ -641,14 +767,24 @@ $("marketSelect").addEventListener("change", (event) => {
 });
 
 $("refreshBtn").addEventListener("click", loadDashboard);
+$("demoAutoBtn").addEventListener("click", runDemoSequence);
 
 document.addEventListener("click", (event) => {
+  const intentButton = event.target.closest("[data-intent-mode]");
+  if (intentButton) {
+    clearDemoTimers();
+    const mode = intentButton.getAttribute("data-intent-mode");
+    setIntentMode(mode, mode === "observe" ? 0 : 3);
+    return;
+  }
+
   const button = event.target.closest("[data-check-id]");
   if (button) {
     const id = button.getAttribute("data-check-id");
     state.pauseChecks[id] = !state.pauseChecks[id];
     renderReadiness();
     renderPauseChecklist();
+    renderDemoStage();
     return;
   }
 
