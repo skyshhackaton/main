@@ -1,5 +1,6 @@
 ﻿from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import math
 
 from app.fomo_score import score_at, score_series
 from app.forecast_score import build_score_forecast
@@ -62,6 +63,11 @@ def _require_positive_int(name: str, value: int) -> None:
         raise HTTPException(status_code=400, detail=f"{name} must be positive")
 
 
+def _require_non_negative_number(name: str, value: float) -> None:
+    if not math.isfinite(value) or value < 0:
+        raise HTTPException(status_code=400, detail=f"{name} must be non-negative")
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "fomo-break-api"}
@@ -110,6 +116,8 @@ def get_mvp_overview(
 ) -> dict:
     _require_positive_int("history_days", history_days)
     _require_positive_int("mirror_days", mirror_days)
+    _require_non_negative_number("tolerance", tolerance)
+    _require_positive_int("max_periods", max_periods)
     if include_knn:
         _require_positive_int("knn_neighbors", knn_neighbors)
 
@@ -157,6 +165,9 @@ def get_historical_mirror(
     days: int = 200,
     max_periods: int = 20,
 ) -> dict:
+    _require_non_negative_number("tolerance", tolerance)
+    _require_positive_int("days", days)
+    _require_positive_int("max_periods", max_periods)
     candles = _load_or_404(market)
     try:
         mirror = build_historical_mirror(
@@ -187,6 +198,8 @@ def get_score_forecast(
     lags: int = 5,
     days: int = 200,
 ) -> dict:
+    _require_positive_int("lags", lags)
+    _require_positive_int("days", days)
     candles = _load_or_404(market)
     try:
         forecast = build_score_forecast(
@@ -210,6 +223,8 @@ def get_knn_mirror(
     n_neighbors: int = 5,
     days: int = 200,
 ) -> dict:
+    _require_positive_int("n_neighbors", n_neighbors)
+    _require_positive_int("days", days)
     candles = _load_or_404(market)
     try:
         mirror = build_knn_mirror(

@@ -175,6 +175,8 @@ GET http://localhost:8000/api/fomo-history?market=KRW-BTC
 GET http://localhost:8000/api/decision-pause
 GET http://localhost:8000/api/mvp-overview?market=KRW-BTC
 GET http://localhost:8000/api/historical-mirror?market=KRW-BTC
+GET http://localhost:8000/api/knn-mirror?market=KRW-BTC
+GET http://localhost:8000/api/score-forecast?market=KRW-BTC
 ```
 
 ### Frontend
@@ -271,6 +273,9 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
   },
   "historical_mirror": {
     "current_score": 73.2,
+    "method": "score_tolerance",
+    "method_label": "조건 매칭",
+    "comparison_basis": ["fomo_score"],
     "similar_periods": [],
     "stats": {"sample_count": 0}
   },
@@ -294,6 +299,9 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
   "market": "KRW-BTC",
   "current_score": 73.2,
   "current_grade": "탐욕",
+  "method": "score_tolerance",
+  "method_label": "조건 매칭",
+  "comparison_basis": ["fomo_score"],
   "similar_periods": [
     {
       "date": "2025-11-09T00:00:00",
@@ -310,6 +318,26 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
     "sample_count": 12,
     "positive_rate_7d": 0.42
   },
+  "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+}
+```
+
+### GET /api/knn-mirror
+
+Historical Mirror와 같은 화면에서 비교 가능한 KNN 기반 과거 참고 사례를 반환합니다. 기본 MVP 통합 응답에는 포함되지 않으며, `/api/mvp-overview?include_knn=true`일 때 선택적으로 함께 내려갑니다.
+
+```json
+{
+  "market": "KRW-BTC",
+  "current_score": 73.2,
+  "current_grade": "탐욕",
+  "method": "feature_knn",
+  "method_label": "피처 유사도",
+  "comparison_basis": ["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
+  "n_neighbors": 5,
+  "features": ["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
+  "similar_periods": [],
+  "stats": {"sample_count": 5},
   "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
 }
 ```

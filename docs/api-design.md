@@ -106,8 +106,8 @@ Query:
 | market | KRW-BTC | 업비트 마켓 코드 |
 | history_days | 200 | 히스토리 차트 반환 일수, 양수 |
 | mirror_days | 200 | 유사 구간 탐색 시계열 길이, 양수 |
-| tolerance | 10 | 현재 점수와 유사하다고 볼 점수 범위 |
-| max_periods | 10 | 응답에 포함할 최대 유사 구간 수 |
+| tolerance | 10 | 현재 점수와 유사하다고 볼 점수 범위, 0 이상 |
+| max_periods | 10 | 응답에 포함할 최대 유사 구간 수, 양수 |
 | include_knn | false | KNN Mirror 섹션 포함 여부 |
 | knn_neighbors | 5 | KNN 이웃 수, `include_knn=true`일 때 양수 |
 
@@ -126,6 +126,9 @@ Query:
   },
   "historical_mirror": {
     "current_score": 73.2,
+    "method": "score_tolerance",
+    "method_label": "조건 매칭",
+    "comparison_basis": ["fomo_score"],
     "similar_periods": [],
     "stats": {"sample_count": 0}
   },
@@ -158,9 +161,9 @@ Query:
 | 이름 | 기본값 | 설명 |
 |---|---|---|
 | market | KRW-BTC | 업비트 마켓 코드 |
-| tolerance | 10 | 현재 점수와 유사하다고 볼 점수 범위 |
-| days | 200 | 탐색할 최근 시계열 길이 |
-| max_periods | 20 | 응답에 포함할 최대 유사 구간 수 |
+| tolerance | 10 | 현재 점수와 유사하다고 볼 점수 범위, 0 이상 |
+| days | 200 | 탐색할 최근 시계열 길이, 양수 |
+| max_periods | 20 | 응답에 포함할 최대 유사 구간 수, 양수 |
 
 ```json
 {
@@ -168,6 +171,9 @@ Query:
   "current_date": "2026-06-28T00:00:00",
   "current_score": 73.2,
   "current_grade": "탐욕",
+  "method": "score_tolerance",
+  "method_label": "조건 매칭",
+  "comparison_basis": ["fomo_score"],
   "tolerance": 10,
   "similar_periods": [
     {
@@ -194,3 +200,55 @@ Query:
 ```
 
 주의: UI에는 미래 수익률 예측처럼 보이는 문구를 노출하지 않습니다.
+
+## GET /api/knn-mirror
+
+현재와 가까웠던 과거 구간을 FOMO Score, 1일 변화율, 거래량 비율, RSI 피처 유사도로 반환합니다.
+Historical Mirror와 같은 화면에서 비교할 수 있도록 공통 필드와 `similar_periods`, `stats` 구조를 유지합니다.
+
+KNN은 `/api/mvp-overview`에서 기본 실행되지 않으며, 통합 응답에 포함하려면 `include_knn=true`를 사용합니다.
+
+Query:
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| market | KRW-BTC | 업비트 마켓 코드 |
+| n_neighbors | 5 | 반환할 가까운 과거 구간 수, 양수 |
+| days | 200 | 탐색할 최근 시계열 길이, 양수 |
+
+```json
+{
+  "market": "KRW-BTC",
+  "current_date": "2026-06-28T00:00:00",
+  "current_score": 73.2,
+  "current_grade": "탐욕",
+  "method": "feature_knn",
+  "method_label": "피처 유사도",
+  "comparison_basis": ["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
+  "n_neighbors": 5,
+  "features": ["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
+  "similar_periods": [
+    {
+      "date": "2025-11-09T00:00:00",
+      "close": 98500000,
+      "score": 78.4,
+      "grade": "탐욕",
+      "score_gap": 5.2,
+      "distance": 0.4312,
+      "ret_3d": -0.021,
+      "ret_7d": -0.084,
+      "ret_30d": 0.052,
+      "summary": "당시 FOMO Score는 78.4점(탐욕)으로 현재와 유사한 시장 심리 구간이었습니다."
+    }
+  ],
+  "stats": {
+    "sample_count": 5,
+    "mean_3d": -0.012,
+    "std_3d": 0.041,
+    "positive_rate_3d": 0.42,
+    "sample_count_3d": 5
+  },
+  "summary": "KNN(피처 4종, 표준화 적용)으로 현재와 가장 유사한 과거 구간 5개를 찾았습니다. 과거 참고 통계이며 미래 성과를 보장하지 않습니다.",
+  "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+}
+```
