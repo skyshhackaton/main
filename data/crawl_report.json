@@ -1,6 +1,6 @@
 {
-  "crawled_at": "2026-06-28T04:17:12Z",
-  "run_id": "20260628_0417",
+  "crawled_at": "2026-06-28T04:34:13Z",
+  "run_id": "20260628_0434",
   "source": "upbit",
   "markets": [
     "KRW-BTC",
@@ -9,10 +9,10 @@
   ],
   "results": {
     "KRW-BTC": {
-      "rows": 565,
+      "rows": 2200,
       "validation": {
         "ok": true,
-        "count": 565,
+        "count": 2200,
         "missing_dates": [],
         "duplicate_dates": [],
         "ohlc_errors": [],
@@ -20,10 +20,10 @@
       }
     },
     "KRW-ETH": {
-      "rows": 565,
+      "rows": 2200,
       "validation": {
         "ok": true,
-        "count": 565,
+        "count": 2200,
         "missing_dates": [],
         "duplicate_dates": [],
         "ohlc_errors": [],
@@ -31,10 +31,10 @@
       }
     },
     "KRW-XRP": {
-      "rows": 565,
+      "rows": 2200,
       "validation": {
         "ok": true,
-        "count": 565,
+        "count": 2200,
         "missing_dates": [],
         "duplicate_dates": [],
         "ohlc_errors": [],
