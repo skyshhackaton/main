@@ -62,6 +62,7 @@ Historical Mirror, KNN Mirror, backtest 입력으로 쓸 때는 기존 공통 �
 
 QA 리포트 기준:
 
+- `run_id`: `20260628_0417`
 - `missing_dates`: 0
 - `duplicate_dates`: 0
 - `ohlc_errors`: 0
