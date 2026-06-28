@@ -252,3 +252,49 @@ Query:
   "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
 }
 ```
+
+## GET /api/score-forecast
+
+FOMO Score 자체의 단기 참고 흐름을 반환합니다. 가격, 수익률, 매수/매도 행동을 예측하지 않으며, 백테스트 MAE를 오차 범위로 함께 내려 변화폭을 방향으로 해석해도 되는지 확인할 수 있게 합니다.
+
+Query:
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| market | KRW-BTC | 업비트 마켓 코드 |
+| lags | 5 | 모델 입력에 사용할 최근 FOMO Score 개수, 양수 |
+| days | 200 | 학습과 참고값 산출에 사용할 최근 시계열 길이, 양수 |
+
+```json
+{
+  "market": "KRW-BTC",
+  "current_date": "2026-06-28T00:00:00",
+  "current_score": 42.33,
+  "current_grade": "중립",
+  "lags": 5,
+  "method": "XGBRegressor (per-horizon direct forecast)",
+  "method_label": "FOMO Score 흐름 참고",
+  "comparison_basis": ["fomo_score_lags", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
+  "forecast": [
+    {
+      "horizon_days": 7,
+      "predicted_score": 38.52,
+      "grade": "공포",
+      "score_delta": -3.81,
+      "error_band": 5.096,
+      "trend_direction": "within_error_band",
+      "trend_label": "오차 범위 내",
+      "confidence_level": "medium",
+      "confidence_label": "보통",
+      "backtest_mae": 5.096,
+      "train_samples": 189,
+      "interpretation": "현재 점수와의 차이가 백테스트 오차 범위 안에 있어 방향으로 단정하지 않습니다. 시장 상태 관찰과 자기 점검을 위한 참고값입니다."
+    }
+  ],
+  "summary": "현재 FOMO Score 42.33점 기준, 7일 참고값은 백테스트 오차 범위 안에 있습니다. 방향을 단정하기보다 지금 판단의 근거를 점검하는 데 사용하세요.",
+  "caution": "FOMO Score 참고 흐름은 시장 상태 관찰값이며 가격/수익률 예측이나 투자 추천이 아닙니다.",
+  "disclaimer": "FOMO Score 흐름 참고값은 시장 심리 상태 관찰용이며 가격·수익률 예측이 아닙니다. 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
+}
+```
+
+주의: UI에서는 `predicted_score`만 단독으로 강조하지 않고 `error_band`, `trend_label`, `interpretation`을 함께 노출합니다.
