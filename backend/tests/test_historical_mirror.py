@@ -30,6 +30,7 @@ def test_historical_mirror_returns_periods_and_stats():
     )
 
     assert result["current_score"] == 50.0
+    assert result["current_grade"] == "중립"
     assert len(result["similar_periods"]) == 5
     assert result["stats"]["sample_count"] == 59
     assert result["stats"]["sample_count_3d"] == 57
@@ -54,6 +55,19 @@ def test_future_return_boundary_uses_none_when_horizon_exceeds_data():
     assert result["stats"]["mean_30d"] is None
 
 
+def test_current_day_is_not_included_as_similar_period():
+    result = build_historical_mirror(
+        _make_candles(),
+        current_score=50.0,
+        tolerance=100.0,
+        days=8,
+        max_periods=20,
+    )
+
+    assert result["current_date"] not in {p["date"] for p in result["similar_periods"]}
+    assert result["stats"]["sample_count"] == 7
+
+
 def test_invalid_arguments_are_rejected():
     candles = _make_candles()
 
@@ -65,3 +79,5 @@ def test_invalid_arguments_are_rejected():
         build_historical_mirror(candles, days=0)
     with pytest.raises(ValueError):
         build_historical_mirror(candles, max_periods=0)
+    with pytest.raises(ValueError):
+        build_historical_mirror(candles, current_score=101.0)
