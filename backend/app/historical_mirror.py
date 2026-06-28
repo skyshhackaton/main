@@ -11,7 +11,7 @@ from __future__ import annotations
 from statistics import pstdev
 from typing import Iterable
 
-from app.fomo_score import score_at, score_series
+from app.fomo_score import classify_grade, score_at, score_series
 
 DEFAULT_HORIZONS = (3, 7, 30)
 
@@ -79,13 +79,16 @@ def build_historical_mirror(
         raise ValueError("days must be positive")
     if max_periods <= 0:
         raise ValueError("max_periods must be positive")
+    if current_score is not None and not 0 <= current_score <= 100:
+        raise ValueError("current_score must be between 0 and 100")
 
     series = score_series(candles, days=days)
     if not series:
         raise ValueError("not enough candles to build score series")
 
-    current = score_at(candles)
+    current = score_at(candles) if current_score is None else None
     target_score = current["score"] if current_score is None else current_score
+    current_grade = current["grade"] if current is not None else classify_grade(target_score)[0]
     series_start_index = len(candles) - len(series)
 
     matches = []
@@ -113,7 +116,7 @@ def build_historical_mirror(
     return {
         "current_date": series[-1]["date"],
         "current_score": round(target_score, 2),
-        "current_grade": current["grade"],
+        "current_grade": current_grade,
         "tolerance": tolerance,
         "similar_periods": visible_periods,
         "stats": _summarize_returns(matches),
