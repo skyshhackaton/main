@@ -587,11 +587,11 @@ button:disabled {
 
 .observation-flow div {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 6px;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 5px;
   align-items: center;
-  min-height: 42px;
-  padding: 7px;
+  min-height: 32px;
+  padding: 6px;
   border: 1px solid rgba(45, 155, 109, 0.22);
   border-radius: 8px;
   background: rgba(45, 155, 109, 0.08);
@@ -599,10 +599,9 @@ button:disabled {
 
 .observation-flow span {
   display: grid;
-  grid-row: 1 / span 2;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: rgba(45, 155, 109, 0.2);
   color: #9fdcbf;
@@ -618,17 +617,20 @@ button:disabled {
 
 .observation-flow strong {
   color: #ffffff;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .observation-flow p {
   margin: 0;
   color: #b8c4d2;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 800;
   line-height: 1.2;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .attempt-scene {
@@ -1271,9 +1273,12 @@ button:disabled {
 
 .pause-live-status p {
   color: #c8d3df;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 750;
-  line-height: 1.35;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pause-progress {
@@ -1323,15 +1328,16 @@ button:disabled {
 }
 
 .quick-pause-toggle span {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .quick-pause-toggle p {
   margin: 0;
   min-width: 0;
   color: #b8c4d2;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 750;
   line-height: 1.22;
   overflow: hidden;
@@ -1341,7 +1347,7 @@ button:disabled {
 
 .quick-pause-toggle strong {
   color: #9fdcbf;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   white-space: nowrap;
 }
 
