@@ -108,6 +108,8 @@ Query:
 | mirror_days | 200 | 유사 구간 탐색 시계열 길이, 양수 |
 | tolerance | 10 | 현재 점수와 유사하다고 볼 점수 범위 |
 | max_periods | 10 | 응답에 포함할 최대 유사 구간 수 |
+| include_knn | false | KNN Mirror 섹션 포함 여부 |
+| knn_neighbors | 5 | KNN 이웃 수, `include_knn=true`일 때 양수 |
 
 ```json
 {
@@ -127,6 +129,7 @@ Query:
     "similar_periods": [],
     "stats": {"sample_count": 0}
   },
+  "knn_mirror": null,
   "decision_pause": {
     "items": [
       {
@@ -140,6 +143,9 @@ Query:
   "history_disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
 }
 ```
+
+`include_knn=true`이면 `knn_mirror`에 `/api/knn-mirror`와 같은 구조의 결과가 들어갑니다.
+기본값은 `false`라서 기존 MVP 화면은 Historical Mirror만으로도 동작합니다.
 
 ## GET /api/historical-mirror
 

@@ -64,9 +64,26 @@ def test_mvp_overview_endpoint_returns_demo_flow(monkeypatch):
     assert 0 <= data["current"]["score"] <= 100
     assert len(data["history"]["items"]) == 20
     assert len(data["historical_mirror"]["similar_periods"]) == 3
+    assert data["knn_mirror"] is None
     assert len(data["decision_pause"]["items"]) >= 3
     assert "투자 추천" in data["disclaimer"]
     assert "미래 성과를 보장하지 않습니다" in data["history_disclaimer"]
+
+
+def test_mvp_overview_endpoint_can_include_knn_mirror(monkeypatch):
+    monkeypatch.setattr(main, "load_candles", lambda market: _make_candles())
+
+    response = client.get(
+        "/api/mvp-overview?market=KRW-BTC&mirror_days=60&include_knn=true&knn_neighbors=4"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    knn = data["knn_mirror"]
+    assert knn["n_neighbors"] == 4
+    assert knn["features"] == ["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"]
+    assert len(knn["similar_periods"]) == 4
+    assert "distance" in knn["similar_periods"][0]
 
 
 def test_mvp_overview_endpoint_rejects_invalid_args(monkeypatch):
@@ -79,6 +96,10 @@ def test_mvp_overview_endpoint_rejects_invalid_args(monkeypatch):
     response = client.get("/api/mvp-overview?market=KRW-BTC&mirror_days=0")
     assert response.status_code == 400
     assert response.json()["detail"] == "mirror_days must be positive"
+
+    response = client.get("/api/mvp-overview?market=KRW-BTC&include_knn=true&knn_neighbors=0")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "knn_neighbors must be positive"
 
 
 def test_fomo_history_endpoint_rejects_invalid_days(monkeypatch):

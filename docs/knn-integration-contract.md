@@ -75,10 +75,10 @@ KNN 전용 추가 필드:
 
 ## MVP Integration
 
-`feature/knn-and-ml`이 기준 브랜치에 머지된 뒤에는 다음 연결을 검토합니다.
+`feature/knn-and-ml`이 기준 브랜치에 머지된 뒤에는 다음 연결을 기준으로 둡니다.
 
 1. `GET /api/knn-mirror`를 API 문서에 정식 추가합니다.
-2. `GET /api/mvp-overview`에 `knn_mirror` 섹션을 선택적으로 포함합니다.
+2. `GET /api/mvp-overview?include_knn=true`에 `knn_mirror` 섹션을 선택적으로 포함합니다.
 3. 프론트는 Historical Mirror와 KNN Mirror를 "조건 매칭"과 "피처 유사도" 두 탭으로 비교합니다.
 4. 화면 문구는 "가까웠던 과거 사례"로 표현하고, "예측", "기회", "신호" 표현은 쓰지 않습니다.
 

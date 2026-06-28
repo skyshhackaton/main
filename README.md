@@ -274,6 +274,7 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
     "similar_periods": [],
     "stats": {"sample_count": 0}
   },
+  "knn_mirror": null,
   "decision_pause": {
     "items": []
   },
@@ -281,6 +282,8 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
   "history_disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
 }
 ```
+
+`include_knn=true`를 붙이면 KNN Mirror 결과도 함께 받을 수 있습니다.
 
 ### GET /api/historical-mirror
 
