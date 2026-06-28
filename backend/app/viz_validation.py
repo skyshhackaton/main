@@ -29,7 +29,6 @@ from app.train_common import (  # noqa: E402
     fomo_scores,
     load_candles_from_csv,
 )
-from app.train_lstm import train_lstm  # noqa: E402
 from app.train_xgb import evaluate_xgb_holdout  # noqa: E402
 from app.viz_per_model import COLORS, HORIZONS, LSTM_CFG  # noqa: E402
 from app.viz_pattern import DISCLAIMER_EN, GRADE_ZONES  # noqa: E402
@@ -56,6 +55,14 @@ def _xgb_views(candles, scores, train_ratio):
 
 
 def _lstm_views(candles, scores, train_ratio):
+    try:
+        from app.train_lstm import train_lstm
+    except ImportError as exc:  # pragma: no cover - exercised in torch-free envs
+        raise RuntimeError(
+            "LSTM validation visualization requires optional dependency torch. "
+            "Install torch to render LSTM charts."
+        ) from exc
+
     skills = {h: train_lstm(scores, horizon=h, train_ratio=train_ratio, **LSTM_CFG)["skill"]
               for h in HORIZONS}
     h = _best_horizon(skills)
@@ -130,15 +137,18 @@ def generate(
 def main(argv: list[str] | None = None) -> None:
     import argparse
 
-    import torch
-
-    torch.set_num_threads(1)
     parser = argparse.ArgumentParser(description="모델별 best-skill horizon 검증 차트 (stitched)")
     parser.add_argument("--csv", default=str(DEFAULT_CSV))
     parser.add_argument("--market", default=DEFAULT_MARKET)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     args = parser.parse_args(argv)
 
+    try:
+        import torch
+    except ImportError as exc:
+        raise SystemExit("torch가 필요합니다. LSTM 검증 차트를 렌더링하려면 torch를 설치하세요.") from exc
+
+    torch.set_num_threads(1)
     out = generate(Path(args.csv), args.market, Path(args.out))
     for name, info in out.items():
         print(f"{name:12s} best +{info['best_horizon']}d  skill {info['skill']:+.3f}  -> {info['path']}")

@@ -126,15 +126,21 @@ def generate(
 def main(argv: list[str] | None = None) -> None:
     import argparse
 
-    import torch
-
-    torch.set_num_threads(1)
     parser = argparse.ArgumentParser(description="Expanding backtest 시각화 (holdout vs expanding + stitched)")
     parser.add_argument("--csv", default=str(DEFAULT_CSV))
     parser.add_argument("--market", default=DEFAULT_MARKET)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--no-lstm", action="store_true")
     args = parser.parse_args(argv)
+
+    if not args.no_lstm:
+        try:
+            import torch
+        except ImportError as exc:
+            raise SystemExit(
+                "torch가 필요합니다. torch 없이 실행하려면 --no-lstm 옵션을 사용하세요."
+            ) from exc
+        torch.set_num_threads(1)
 
     paths = generate(Path(args.csv), args.market, Path(args.out), include_lstm=not args.no_lstm)
     for label, path in paths.items():

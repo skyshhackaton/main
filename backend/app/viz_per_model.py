@@ -27,7 +27,6 @@ from app.train_common import (  # noqa: E402
     fomo_scores,
     load_candles_from_csv,
 )
-from app.train_lstm import forecast_lstm, train_lstm  # noqa: E402
 from app.train_xgb import evaluate_xgb_holdout, forecast_xgb  # noqa: E402
 from app.viz_pattern import DISCLAIMER_EN, GRADE_ZONES  # noqa: E402
 
@@ -123,6 +122,14 @@ def _xgb_views(candles, train_ratio):
 
 
 def _lstm_views(scores, train_ratio):
+    try:
+        from app.train_lstm import forecast_lstm, train_lstm
+    except ImportError as exc:  # pragma: no cover - exercised in torch-free envs
+        raise RuntimeError(
+            "LSTM visualization requires optional dependency torch. "
+            "Install torch to render LSTM charts."
+        ) from exc
+
     fc = forecast_lstm(scores, horizons=HORIZONS, **LSTM_CFG)
     forecast = {"kind": "points", "points": fc["horizons"]}
     cfg = {k: v for k, v in LSTM_CFG.items() if k != "epochs"}
@@ -165,15 +172,18 @@ def generate(
 def main(argv: list[str] | None = None) -> None:
     import argparse
 
-    import torch
-
-    torch.set_num_threads(1)
     parser = argparse.ArgumentParser(description="모델별 forecast/validation/skill 3-패널 차트")
     parser.add_argument("--csv", default=str(DEFAULT_CSV))
     parser.add_argument("--market", default=DEFAULT_MARKET)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     args = parser.parse_args(argv)
 
+    try:
+        import torch
+    except ImportError as exc:
+        raise SystemExit("torch가 필요합니다. LSTM 차트를 렌더링하려면 torch를 설치하세요.") from exc
+
+    torch.set_num_threads(1)
     paths = generate(Path(args.csv), args.market, Path(args.out))
     for name, path in paths.items():
         print(f"{name:12s} -> {path}")
