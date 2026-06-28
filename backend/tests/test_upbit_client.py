@@ -7,6 +7,8 @@ async 함수는 asyncio.run()으로 실행해 별도 플러그인 설정 없이 
 
 import asyncio
 
+import httpx
+
 from app import upbit_client
 
 
@@ -49,6 +51,78 @@ def _install_fake(monkeypatch, full_newest_first: list[dict]) -> None:
 
 def _dates(start_day: int, end_day: int) -> list[str]:
     return [f"2024-01-{d:02d}" for d in range(start_day, end_day + 1)]
+
+
+# ---------------------------------------------------------------------------
+# fetch_day_candles retry/backoff
+# ---------------------------------------------------------------------------
+
+def test_fetch_day_candles_retries_429_then_success(monkeypatch):
+    calls = []
+    raw = _make_raw(["2024-01-01"])[0]
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, path, params):
+            calls.append((path, params))
+            request = httpx.Request("GET", f"{upbit_client.UPBIT_BASE_URL}{path}")
+            if len(calls) == 1:
+                return httpx.Response(429, request=request)
+            return httpx.Response(200, json=[raw], request=request)
+
+    monkeypatch.setattr(upbit_client.httpx, "AsyncClient", FakeClient)
+
+    result = asyncio.run(
+        upbit_client.fetch_day_candles(
+            "KRW-BTC", retry_attempts=2, backoff_seconds=0
+        )
+    )
+
+    assert len(calls) == 2
+    assert calls[0][0] == "/candles/days"
+    assert calls[0][1] == {"market": "KRW-BTC", "count": 200}
+    assert result == [raw]
+
+
+def test_fetch_day_candles_retries_timeout_then_success(monkeypatch):
+    calls = []
+    raw = _make_raw(["2024-01-01"])[0]
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, path, params):
+            calls.append((path, params))
+            if len(calls) == 1:
+                raise httpx.ReadTimeout("simulated timeout")
+            request = httpx.Request("GET", f"{upbit_client.UPBIT_BASE_URL}{path}")
+            return httpx.Response(200, json=[raw], request=request)
+
+    monkeypatch.setattr(upbit_client.httpx, "AsyncClient", FakeClient)
+
+    result = asyncio.run(
+        upbit_client.fetch_day_candles(
+            "KRW-ETH", retry_attempts=2, backoff_seconds=0
+        )
+    )
+
+    assert len(calls) == 2
+    assert result == [raw]
 
 
 # ---------------------------------------------------------------------------

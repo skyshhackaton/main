@@ -15,17 +15,52 @@ DEFAULT_MARKET = "KRW-BTC"
 DEFAULT_MARKETS = ["KRW-BTC", "KRW-ETH", "KRW-XRP"]
 DB_PATH = Path(__file__).parent.parent / "upbit_data.db"
 TARGET_COUNT = 565  # 200일 스코어 + 365일 룩백 윈도우
+DEFAULT_RETRY_ATTEMPTS = 3
+DEFAULT_BACKOFF_SECONDS = 0.5
 
 
-async def fetch_day_candles(market: str, count: int = 200, to: str | None = None) -> list[dict]:
+def _is_retryable_status(status_code: int) -> bool:
+    return status_code == 429 or 500 <= status_code <= 599
+
+
+async def _sleep_before_retry(attempt_index: int, backoff_seconds: float) -> None:
+    if backoff_seconds <= 0:
+        return
+    await asyncio.sleep(backoff_seconds * (2 ** attempt_index))
+
+
+async def fetch_day_candles(
+    market: str,
+    count: int = 200,
+    to: str | None = None,
+    *,
+    retry_attempts: int = DEFAULT_RETRY_ATTEMPTS,
+    backoff_seconds: float = DEFAULT_BACKOFF_SECONDS,
+) -> list[dict]:
     params: dict[str, str | int] = {"market": market, "count": count}
     if to:
         params["to"] = to
 
+    attempts = max(1, retry_attempts)
     async with httpx.AsyncClient(base_url=UPBIT_BASE_URL, timeout=10.0) as client:
-        response = await client.get("/candles/days", params=params)
-        response.raise_for_status()
-        return response.json()
+        for attempt in range(attempts):
+            try:
+                response = await client.get("/candles/days", params=params)
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code
+                if attempt < attempts - 1 and _is_retryable_status(status_code):
+                    await _sleep_before_retry(attempt, backoff_seconds)
+                    continue
+                raise
+            except (httpx.TimeoutException, httpx.TransportError):
+                if attempt < attempts - 1:
+                    await _sleep_before_retry(attempt, backoff_seconds)
+                    continue
+                raise
+
+    raise RuntimeError("unreachable retry state")
 
 
 async def fetch_all_candles(market: str = DEFAULT_MARKET, target: int = TARGET_COUNT) -> list[dict]:

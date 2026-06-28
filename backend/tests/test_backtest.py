@@ -146,7 +146,7 @@ def test_official_snapshot_contains_three_oldest_first_markets():
     assert DEFAULT_SNAPSHOT_PATH.name == "upbit_candles_snapshot.csv"
     for market in ("KRW-BTC", "KRW-ETH", "KRW-XRP"):
         candles = load_snapshot_candles(market)
-        assert len(candles) == 565
+        assert len(candles) == 2200
         assert candles == sorted(candles, key=lambda candle: candle["date_utc"])
 
 
