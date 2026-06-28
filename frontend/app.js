@@ -69,50 +69,64 @@ const DEMO_SCRIPT = [
     delay: 0,
     mode: "observe",
     step: 0,
+    orderLog: false,
+    checks: 0,
     title: "1. 시장 상태를 먼저 엽니다",
     copy: "API 연결, 선택 마켓, 표시용 현재가와 FOMO Score를 같은 화면에서 확인합니다.",
   },
   {
-    delay: 12000,
+    delay: 10000,
     mode: "buy",
     step: 0,
+    orderLog: false,
+    checks: 0,
     title: "2. 가상 매수 시도가 들어옵니다",
     copy: "사용자가 가격 움직임에 반응하려는 순간을 시연합니다. 실제 주문 기능은 열리지 않습니다.",
   },
   {
-    delay: 28000,
+    delay: 22000,
     mode: "buy",
     step: 1,
+    orderLog: true,
+    checks: 0,
     title: "3. 주문 경로를 차단합니다",
     copy: "API Key 입력과 주문 전송 없이, 공개 데이터 기반 관찰 화면으로 흐름을 돌립니다.",
   },
   {
-    delay: 43000,
+    delay: 36000,
     mode: "buy",
     step: 2,
+    orderLog: true,
+    checks: 0,
     title: "4. 판단 근거를 나눕니다",
     copy: "현재 점수, 과거 참고 구간, 오차 범위, 표시용 현재가를 함께 보여줍니다.",
   },
   {
-    delay: 58000,
+    delay: 50000,
     mode: "buy",
     step: 3,
+    orderLog: true,
+    checks: 0,
     title: "5. Decision Pause로 멈춥니다",
     copy: "지금 판단의 근거가 정보인지 감정인지 체크리스트로 확인합니다.",
   },
   {
-    delay: 72000,
-    mode: "sell",
-    step: 0,
-    title: "6. 가상 매도 시도도 같은 원칙입니다",
-    copy: "불안한 반응도 주문으로 연결하지 않고 근거 점검으로 전환합니다.",
+    delay: 62000,
+    mode: "buy",
+    step: 3,
+    orderLog: true,
+    checks: 2,
+    title: "6. 자기 점검 문항을 확인합니다",
+    copy: "확인 버튼을 누른 것처럼 문항이 하나씩 완료되고 판단 준비도에 반영됩니다.",
   },
   {
-    delay: 84000,
-    mode: "sell",
-    step: 3,
-    title: "7. 안전한 MVP 원칙으로 마무리합니다",
-    copy: "투자 추천 없이 시장 상태 관찰, 과거 참고 사례, 자기 점검만 제공합니다.",
+    delay: 76000,
+    mode: "buy",
+    step: 4,
+    orderLog: true,
+    checks: 4,
+    title: "7. 판단 근거 정리로 마무리합니다",
+    copy: "모든 과정은 투자 추천 없이 시장 상태 관찰, 과거 참고 사례, 자기 점검만 제공합니다.",
   },
 ];
 
@@ -328,6 +342,47 @@ function setIntentMode(mode, step = 0) {
   state.intentMode = mode;
   state.demoStep = step;
   renderDemoStage();
+}
+
+function resetPauseChecks() {
+  state.pauseChecks = Object.fromEntries(PAUSE_CHECKS.map((item) => [item.id, false]));
+  state.pauseSlideIndex = 0;
+}
+
+function setDemoPauseChecks(count) {
+  const safeCount = Math.max(0, Math.min(PAUSE_CHECKS.length, Number(count) || 0));
+  PAUSE_CHECKS.forEach((item, index) => {
+    state.pauseChecks[item.id] = index < safeCount;
+  });
+  if (safeCount >= PAUSE_CHECKS.length) {
+    state.pauseSlideIndex = PAUSE_CHECKS.length - 1;
+  } else if (safeCount > 0) {
+    state.pauseSlideIndex = safeCount;
+  } else {
+    state.pauseSlideIndex = 0;
+  }
+}
+
+function buildVirtualOrderLog(mode) {
+  const label = mode === "sell" ? "가상 매도" : "가상 매수";
+  const amount = String(state.virtualQuantity || "").trim() || "0.05";
+  return {
+    title: `${label} ${amount} 입력 후 차단`,
+    copy: "화면 안에서 전송 시도만 기록하고 공개 데이터 확인으로 전환했습니다. Upbit 주문 API, API Key, Secret Key는 사용하지 않습니다.",
+  };
+}
+
+function applyDemoScriptState(item, index) {
+  state.demoScriptIndex = index;
+  state.intentMode = item.mode;
+  state.demoStep = item.step;
+  state.virtualOrderLog = item.orderLog ? buildVirtualOrderLog(item.mode) : null;
+  setDemoPauseChecks(item.checks || 0);
+  renderDemoStage();
+  if (state.overview) {
+    renderReadiness();
+    renderPauseChecklist();
+  }
 }
 
 function focusDecisionPausePreview() {
@@ -674,13 +729,14 @@ function runDemoSequence() {
   const button = $("demoAutoBtn");
   button.textContent = "90초 가이드 진행 중";
   state.demoStartedAt = Date.now();
-  state.demoScriptIndex = 0;
+  resetPauseChecks();
+  state.virtualOrderLog = null;
   updateDemoProgress(0);
+  applyDemoScriptState(DEMO_SCRIPT[0], 0);
 
-  state.demoTimers = DEMO_SCRIPT.map((item, index) =>
+  state.demoTimers = DEMO_SCRIPT.slice(1).map((item, offset) =>
     window.setTimeout(() => {
-      state.demoScriptIndex = index;
-      setIntentMode(item.mode, item.step);
+      applyDemoScriptState(item, offset + 1);
     }, item.delay),
   );
 
@@ -1195,13 +1251,8 @@ document.addEventListener("click", (event) => {
   if (virtualSubmit) {
     event.preventDefault();
     const mode = state.intentMode === "sell" ? "sell" : "buy";
-    const label = mode === "sell" ? "가상 매도" : "가상 매수";
-    const amount = String(state.virtualQuantity || "").trim() || "미입력";
     state.intentMode = mode;
-    state.virtualOrderLog = {
-      title: `${label} ${amount} 입력 후 차단`,
-      copy: "화면 안에서 전송 시도만 기록하고 공개 데이터 확인으로 전환했습니다. Upbit 주문 API, API Key, Secret Key는 사용하지 않습니다.",
-    };
+    state.virtualOrderLog = buildVirtualOrderLog(mode);
     state.demoStep = Math.max(state.demoStep, 1);
     state.demoScriptIndex = 3;
     renderDemoStage();
