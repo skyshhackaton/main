@@ -194,7 +194,7 @@ python -m http.server 5173
 http://127.0.0.1:5173
 ```
 
-화면은 현재 FOMO Score, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `오차 범위`, `과거 유사 구간`, `자기 점검 질문`을 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
+화면은 현재 FOMO Score, 시장 레이더, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `세 마켓 비교`, `오차 범위`, `과거 유사 구간`, `자기 점검 체크리스트`를 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
 
 ---
 
