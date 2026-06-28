@@ -18,6 +18,26 @@ from .fomo_score import FomoWeights, WEIGHTS
 
 DEFAULT_SNAPSHOT_PATH = Path(__file__).resolve().parents[2] / "data" / "upbit_candles_snapshot.csv"
 DEFAULT_MARKETS = ("KRW-BTC", "KRW-ETH", "KRW-XRP")
+DEFAULT_BACKTEST_DAYS = 1835
+RESCALED_WEIGHT_FIELDS = (
+    "price_momentum",
+    "price_strength",
+    "market_breadth",
+    "clv_pressure",
+    "rsi",
+    "volatility_inverse",
+)
+
+INDICATOR_WEIGHT_FIELDS = {
+    "X1": "price_momentum",
+    "X2": "price_strength",
+    "X3": "market_breadth",
+    "X4": "clv_pressure",
+    "X5": "rsi",
+    "X6": "volatility_inverse",
+    "X7": "volume_momentum",
+    "X8": "win_streak",
+}
 
 BUCKETS = (
     (0.0, 20.0, "0-20"),
@@ -59,7 +79,7 @@ def load_snapshot_candles(
 def run_snapshot_backtests(
     markets: Iterable[str] = DEFAULT_MARKETS,
     csv_path: Path = DEFAULT_SNAPSHOT_PATH,
-    days: int = 200,
+    days: int = DEFAULT_BACKTEST_DAYS,
     horizon: int = 7,
 ) -> dict[str, dict]:
     """Run baseline and sensitivity backtests from the official CSV snapshot."""
@@ -73,6 +93,9 @@ def run_snapshot_backtests(
             "candle_count": len(candles),
             "baseline": evaluate_weights(candles, days=days, horizon=horizon),
             "sensitivity": sensitivity_analysis(candles, days=days, horizon=horizon),
+            "indicator_ablation": indicator_ablation_analysis(
+                candles, indicators=("X3", "X6"), days=days, horizon=horizon
+            ),
         }
     return results
 
@@ -93,6 +116,13 @@ def _score_series_with_weights(
     candles: list[dict], days: int, weights: FomoWeights
 ) -> list[dict]:
     """Build a score series without mutating the production global weights."""
+    if days <= 0:
+        raise ValueError("days must be positive")
+    if len(candles) <= fomo_score.MIN_WINDOW:
+        raise ValueError(
+            f"at least {fomo_score.MIN_WINDOW + 1} candles are required"
+        )
+
     weight_values = asdict(weights)
     indicator_weights = {
         "X1": weight_values["price_momentum"],
@@ -128,7 +158,7 @@ def _score_series_with_weights(
 def evaluate_weights(
     candles: list[dict],
     weights: FomoWeights = WEIGHTS,
-    days: int = 200,
+    days: int = DEFAULT_BACKTEST_DAYS,
     horizon: int = 7,
 ) -> dict:
     """Return score-bucket statistics for a forward-return evaluation."""
@@ -152,21 +182,25 @@ def evaluate_weights(
     buckets = []
     for _, _, label in BUCKETS:
         returns = grouped[label]
-        buckets.append(
-            {
-                "bucket": label,
-                "sample_count": len(returns),
-                "mean_7d_return": _mean(returns),
-                "positive_rate": (
-                    sum(value > 0 for value in returns) / len(returns)
-                    if returns
-                    else None
-                ),
-            }
-        )
+        mean_return = _mean(returns)
+        row = {
+            "bucket": label,
+            "sample_count": len(returns),
+            "mean_forward_return": mean_return,
+            "positive_rate": (
+                sum(value > 0 for value in returns) / len(returns)
+                if returns
+                else None
+            ),
+        }
+        # Preserve the original default-horizon contract without attaching a
+        # misleading 7-day label to custom-horizon results.
+        if horizon == 7:
+            row["mean_7d_return"] = mean_return
+        buckets.append(row)
 
     high_greed = next(row for row in buckets if row["bucket"] == "80-100")
-    mean_return = high_greed["mean_7d_return"]
+    mean_return = high_greed["mean_forward_return"]
     if mean_return is None:
         finding = "insufficient_data"
     elif mean_return < 0:
@@ -189,8 +223,9 @@ def evaluate_weights(
         "high_greed_report": {
             "finding": finding,
             "sample_count": high_greed["sample_count"],
-            "mean_7d_return": mean_return,
+            "mean_forward_return": mean_return,
             "positive_rate": high_greed["positive_rate"],
+            **({"mean_7d_return": mean_return} if horizon == 7 else {}),
         },
     }
 
@@ -201,19 +236,90 @@ def weights_for_sensitivity(x7: float, x8: float) -> FomoWeights:
         raise ValueError("X7 and X8 must be non-negative and sum to less than 1")
 
     base = asdict(WEIGHTS)
-    fixed_names = tuple(base)[:6]
-    fixed_total = sum(base[name] for name in fixed_names)
+    fixed_total = sum(base[name] for name in RESCALED_WEIGHT_FIELDS)
     scale = (1.0 - x7 - x8) / fixed_total
-    values = {name: base[name] * scale for name in fixed_names}
+    values = {name: base[name] * scale for name in RESCALED_WEIGHT_FIELDS}
     values["volume_momentum"] = x7
     values["win_streak"] = x8
     return FomoWeights(**values)
 
 
+def weights_without_indicator(indicator: str) -> FomoWeights:
+    """Remove one indicator and proportionally redistribute its weight.
+
+    Relative weights among the remaining indicators stay unchanged and the
+    resulting weights sum to one. This supports an interpretable ablation
+    rather than silently lowering the total score scale.
+    """
+    if indicator not in INDICATOR_WEIGHT_FIELDS:
+        raise ValueError(f"indicator must be one of {sorted(INDICATOR_WEIGHT_FIELDS)}")
+
+    removed_field = INDICATOR_WEIGHT_FIELDS[indicator]
+    values = asdict(WEIGHTS)
+    removed_weight = values[removed_field]
+    scale = 1.0 / (1.0 - removed_weight)
+    for field in values:
+        values[field] = 0.0 if field == removed_field else values[field] * scale
+    return FomoWeights(**values)
+
+
+def indicator_ablation_analysis(
+    candles: list[dict],
+    indicators: Iterable[str] = ("X3", "X6"),
+    days: int = DEFAULT_BACKTEST_DAYS,
+    horizon: int = 7,
+) -> list[dict]:
+    """Measure score/distribution changes after removing selected indicators."""
+    baseline_series = _score_series_with_weights(candles, days, WEIGHTS)
+    baseline_result = evaluate_weights(candles, WEIGHTS, days, horizon)
+    baseline_buckets = {
+        row["bucket"]: row for row in baseline_result["buckets"]
+    }
+
+    rows = []
+    for indicator in indicators:
+        weights = weights_without_indicator(indicator)
+        ablated_series = _score_series_with_weights(candles, days, weights)
+        result = evaluate_weights(candles, weights, days, horizon)
+        deltas = [
+            float(ablated["score"]) - float(base["score"])
+            for base, ablated in zip(baseline_series, ablated_series)
+        ]
+        bucket_changes = sum(
+            _bucket_label(float(base["score"]))
+            != _bucket_label(float(ablated["score"]))
+            for base, ablated in zip(baseline_series, ablated_series)
+        )
+        rows.append(
+            {
+                "indicator": indicator,
+                "removed_weight": asdict(WEIGHTS)[INDICATOR_WEIGHT_FIELDS[indicator]],
+                "weight_sum": sum(asdict(weights).values()),
+                "mean_abs_score_change": _mean([abs(delta) for delta in deltas]),
+                "max_abs_score_change": max((abs(delta) for delta in deltas), default=0.0),
+                "bucket_change_count": bucket_changes,
+                "score_summary": result["score_summary"],
+                "buckets": result["buckets"],
+                "bucket_mean_return_change": {
+                    bucket["bucket"]: (
+                        None
+                        if bucket["mean_forward_return"] is None
+                        or baseline_buckets[bucket["bucket"]]["mean_forward_return"] is None
+                        else bucket["mean_forward_return"]
+                        - baseline_buckets[bucket["bucket"]]["mean_forward_return"]
+                    )
+                    for bucket in result["buckets"]
+                },
+                "high_greed_report": result["high_greed_report"],
+            }
+        )
+    return rows
+
+
 def sensitivity_analysis(
     candles: list[dict],
     values: Iterable[float] = (0.15, 0.20, 0.25),
-    days: int = 200,
+    days: int = DEFAULT_BACKTEST_DAYS,
     horizon: int = 7,
 ) -> list[dict]:
     """Compare all requested X7/X8 combinations using identical candles."""
@@ -231,9 +337,14 @@ def sensitivity_analysis(
                 "score_summary": result["score_summary"],
                 "buckets": result["buckets"],
                 "high_greed_sample_count": report["sample_count"],
-                "high_greed_mean_7d_return": report["mean_7d_return"],
+                "high_greed_mean_forward_return": report["mean_forward_return"],
                 "high_greed_positive_rate": report["positive_rate"],
                 "finding": report["finding"],
+                **(
+                    {"high_greed_mean_7d_return": report["mean_7d_return"]}
+                    if horizon == 7
+                    else {}
+                ),
             }
         )
     return rows
@@ -249,7 +360,7 @@ def format_sensitivity_table(rows: list[dict]) -> str:
 
     def format_bucket(item: dict) -> str:
         count = item["sample_count"]
-        mean_return = item["mean_7d_return"]
+        mean_return = item["mean_forward_return"]
         positive_rate = item["positive_rate"]
         if mean_return is None or positive_rate is None:
             return f"{count} / N/A / N/A"
