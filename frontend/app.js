@@ -566,7 +566,7 @@ function renderDemoStage() {
             tabindex="0"
             aria-label="FOMO Score 설명"
             data-tooltip="FOMO Score는 가격 예측이 아니라 업비트 공개 데이터로 계산한 시장 심리 상태 관찰값입니다."
-          >i</span>
+          ><span class="info-icon-mark" aria-hidden="true"></span></span>
         </span>
         <strong>${Number.isFinite(score) ? formatScore(score) : "--"}</strong>
         <p>${escapeHtml(grade)}</p>
