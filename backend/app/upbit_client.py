@@ -12,6 +12,7 @@ import httpx
 
 UPBIT_BASE_URL = "https://api.upbit.com/v1"
 DEFAULT_MARKET = "KRW-BTC"
+DEFAULT_MARKETS = ["KRW-BTC", "KRW-ETH", "KRW-XRP"]
 DB_PATH = Path(__file__).parent.parent / "upbit_data.db"
 TARGET_COUNT = 565  # 200일 스코어 + 365일 룩백 윈도우
 
@@ -263,3 +264,78 @@ def validate_candles(candles: list[dict]) -> dict:
         "ohlc_errors": ohlc_errors,
         "value_errors": value_errors,
     }
+
+
+# ---------------------------------------------------------------------------
+# 파이프라인 실행 (증분 갱신 + 검증) / CLI 엔트리포인트
+# ---------------------------------------------------------------------------
+
+async def run_pipeline(
+    markets: list[str] | None = None, db_path: Path = DB_PATH
+) -> dict[str, dict]:
+    """
+    여러 마켓을 증분 갱신한 뒤 각 마켓의 저장 데이터를 검증한다.
+    smoke test / 스케줄러용 단일 진입점.
+    반환: {market: {"added": int|None, "error": str|None, "validation": dict|None}}
+    한 마켓의 네트워크 실패가 전체를 중단시키지 않는다(refresh_markets와 동일 격리).
+    """
+    markets = markets or DEFAULT_MARKETS
+    refreshed = await refresh_markets(markets, db_path)
+
+    report: dict[str, dict] = {}
+    for market in markets:
+        result = refreshed.get(market)
+        if isinstance(result, dict):  # 갱신 단계 실패
+            report[market] = {
+                "added": None,
+                "error": result.get("error"),
+                "detail": result.get("detail"),
+                "validation": None,
+            }
+            continue
+        validation = validate_candles(load_candles(market, db_path))
+        report[market] = {"added": result, "error": None, "validation": validation}
+    return report
+
+
+def _format_report(report: dict[str, dict]) -> str:
+    lines: list[str] = []
+    for market, info in report.items():
+        if info["error"]:
+            lines.append(f"[{market}] ERROR {info['error']}: {info.get('detail')}")
+            continue
+        v = info["validation"]
+        status = "OK" if v["ok"] else "ISSUES"
+        lines.append(
+            f"[{market}] +{info['added']} new, total={v['count']}, validation={status}"
+        )
+        if not v["ok"]:
+            lines.append(
+                f"    missing={len(v['missing_dates'])} duplicate={len(v['duplicate_dates'])} "
+                f"ohlc_errors={len(v['ohlc_errors'])} value_errors={len(v['value_errors'])}"
+            )
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """CLI: 공개 API에서 실데이터를 받아 DB 갱신 + 검증 리포트 출력."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Upbit 공개 일봉 캔들 증분 갱신 + 검증 (smoke test용)"
+    )
+    parser.add_argument(
+        "--markets", nargs="+", default=DEFAULT_MARKETS,
+        help="갱신할 마켓 목록 (기본: KRW-BTC KRW-ETH KRW-XRP)",
+    )
+    parser.add_argument(
+        "--db", default=str(DB_PATH), help=f"SQLite DB 경로 (기본: {DB_PATH})"
+    )
+    args = parser.parse_args(argv)
+
+    report = asyncio.run(run_pipeline(args.markets, Path(args.db)))
+    print(_format_report(report))
+
+
+if __name__ == "__main__":
+    main()
