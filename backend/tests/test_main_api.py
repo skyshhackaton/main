@@ -167,6 +167,35 @@ def test_score_forecast_endpoint_rejects_invalid_args(monkeypatch):
     assert response.json()["detail"] == "lags must be positive"
 
 
+def test_knn_pattern_endpoint_returns_scenarios(monkeypatch):
+    monkeypatch.setattr(main, "load_candles", lambda market: _make_candles())
+
+    response = client.get("/api/knn-pattern?market=KRW-BTC&window=10&horizon=7&k=5&metric=raw")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["market"] == "KRW-BTC"
+    assert data["k"] == 5
+    assert data["metric"] == "raw"
+    assert len(data["candidates"]) == 5
+    assert len(data["band"]["mean"]) == 7
+    assert "투자 추천" in data["disclaimer"]
+    forbidden = " ".join([data["summary"], data["disclaimer"]])
+    assert not any(word in forbidden for word in FORBIDDEN_INVESTMENT_WORDS)
+
+
+def test_knn_pattern_endpoint_rejects_invalid_args(monkeypatch):
+    monkeypatch.setattr(main, "load_candles", lambda market: _make_candles())
+
+    response = client.get("/api/knn-pattern?market=KRW-BTC&k=0")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "k must be positive"
+
+    response = client.get("/api/knn-pattern?market=KRW-BTC&metric=cosine")
+    assert response.status_code == 400
+    assert "metric must be one of" in response.json()["detail"]
+
+
 def test_score_forecast_endpoint_exposes_uncertainty_fields(monkeypatch):
     monkeypatch.setattr(main, "load_candles", lambda market: _make_candles())
 
