@@ -48,6 +48,59 @@ def test_historical_mirror_endpoint(monkeypatch):
     assert "미래 성과를 보장하지 않습니다" in data["disclaimer"]
 
 
+def test_ticker_endpoint_returns_items_and_parses_markets(monkeypatch):
+    captured = {}
+
+    async def fake_fetch_tickers(markets):
+        captured["markets"] = markets
+        return [
+            {
+                "market": m,
+                "trade_price": 100.0,
+                "signed_change_price": 1.0,
+                "signed_change_rate": 0.01,
+                "acc_trade_volume_24h": 5.0,
+                "acc_trade_price_24h": 500.0,
+                "timestamp": 1780000000000,
+            }
+            for m in markets
+        ]
+
+    monkeypatch.setattr(main, "fetch_tickers", fake_fetch_tickers)
+
+    response = client.get("/api/ticker?markets=KRW-BTC,KRW-ETH")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert captured["markets"] == ["KRW-BTC", "KRW-ETH"]
+    assert [item["market"] for item in data["items"]] == ["KRW-BTC", "KRW-ETH"]
+    assert "투자 추천" in data["disclaimer"]
+
+
+def test_ticker_endpoint_defaults_markets_when_omitted(monkeypatch):
+    captured = {}
+
+    async def fake_fetch_tickers(markets):
+        captured["markets"] = markets
+        return []
+
+    monkeypatch.setattr(main, "fetch_tickers", fake_fetch_tickers)
+
+    response = client.get("/api/ticker")
+    assert response.status_code == 200
+    assert captured["markets"] == main.DEFAULT_MARKETS
+
+
+def test_ticker_endpoint_returns_502_on_upstream_failure(monkeypatch):
+    async def fake_fetch_tickers(markets):
+        raise RuntimeError("upstream down")
+
+    monkeypatch.setattr(main, "fetch_tickers", fake_fetch_tickers)
+
+    response = client.get("/api/ticker?markets=KRW-BTC")
+    assert response.status_code == 502
+
+
 def test_decision_pause_endpoint_uses_reflection_language():
     response = client.get("/api/decision-pause")
 

@@ -11,7 +11,7 @@ from app.knn_pattern import (
     METRICS as PATTERN_METRICS,
     build_fomo_pattern_forecast,
 )
-from app.upbit_client import DEFAULT_MARKET, load_candles
+from app.upbit_client import DEFAULT_MARKET, DEFAULT_MARKETS, fetch_tickers, load_candles
 
 app = FastAPI(
     title="FOMO Break API",
@@ -79,6 +79,39 @@ def health() -> dict[str, str]:
         "status": "ok",
         "service": "fomo-break-api",
         "disclaimer": DISCLAIMER,
+    }
+
+
+TICKER_DISCLAIMER = (
+    "현재가/등락률/거래량은 Upbit 공개 시세를 표시용으로 제공하는 값이며, "
+    "FOMO Score 계산이나 분석 결과에는 사용되지 않습니다. " + DISCLAIMER
+)
+
+
+@app.get("/api/ticker")
+async def get_ticker(markets: str | None = None) -> dict:
+    """화면 표시용 실시간 현재가 스냅샷.
+
+    markets: 쉼표로 구분된 마켓 코드 (예: KRW-BTC,KRW-ETH). 생략 시 기본 마켓.
+    이 endpoint는 표시용이며 공식 데이터셋/FOMO Score 계산과 분리되어 있다.
+    """
+    if markets:
+        market_list = [m.strip() for m in markets.split(",") if m.strip()]
+    else:
+        market_list = DEFAULT_MARKETS
+    if not market_list:
+        raise HTTPException(status_code=400, detail="markets must not be empty")
+
+    try:
+        items = await fetch_tickers(market_list)
+    except Exception as exc:  # noqa: BLE001 - 외부 시세 API 실패를 502로 변환
+        raise HTTPException(
+            status_code=502, detail=f"ticker fetch failed: {type(exc).__name__}"
+        ) from exc
+
+    return {
+        "items": items,
+        "disclaimer": TICKER_DISCLAIMER,
     }
 
 

@@ -29,23 +29,23 @@ async def _sleep_before_retry(attempt_index: int, backoff_seconds: float) -> Non
     await asyncio.sleep(backoff_seconds * (2 ** attempt_index))
 
 
-async def fetch_day_candles(
-    market: str,
-    count: int = 200,
-    to: str | None = None,
+async def _get_json_with_retry(
+    path: str,
+    params: dict,
     *,
     retry_attempts: int = DEFAULT_RETRY_ATTEMPTS,
     backoff_seconds: float = DEFAULT_BACKOFF_SECONDS,
-) -> list[dict]:
-    params: dict[str, str | int] = {"market": market, "count": count}
-    if to:
-        params["to"] = to
+):
+    """Upbit 공개 endpoint GET + retry/backoff 공통 헬퍼.
 
+    429/5xx/timeout/transport error는 재시도, 400·404 등 일반 client error는
+    즉시 raise. 인증 헤더 없음(공개 quotation endpoint 전용).
+    """
     attempts = max(1, retry_attempts)
     async with httpx.AsyncClient(base_url=UPBIT_BASE_URL, timeout=10.0) as client:
         for attempt in range(attempts):
             try:
-                response = await client.get("/candles/days", params=params)
+                response = await client.get(path, params=params)
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as exc:
@@ -61,6 +61,26 @@ async def fetch_day_candles(
                 raise
 
     raise RuntimeError("unreachable retry state")
+
+
+async def fetch_day_candles(
+    market: str,
+    count: int = 200,
+    to: str | None = None,
+    *,
+    retry_attempts: int = DEFAULT_RETRY_ATTEMPTS,
+    backoff_seconds: float = DEFAULT_BACKOFF_SECONDS,
+) -> list[dict]:
+    params: dict[str, str | int] = {"market": market, "count": count}
+    if to:
+        params["to"] = to
+
+    return await _get_json_with_retry(
+        "/candles/days",
+        params,
+        retry_attempts=retry_attempts,
+        backoff_seconds=backoff_seconds,
+    )
 
 
 async def fetch_all_candles(market: str = DEFAULT_MARKET, target: int = TARGET_COUNT) -> list[dict]:
@@ -81,6 +101,47 @@ async def fetch_all_candles(market: str = DEFAULT_MARKET, target: int = TARGET_C
 
     dedup = {c["candle_date_time_utc"]: c for c in collected}
     return sorted(dedup.values(), key=lambda c: c["candle_date_time_utc"])
+
+
+# ---------------------------------------------------------------------------
+# 실시간 현재가(ticker) — 화면 표시용
+# ---------------------------------------------------------------------------
+# 주의: ticker는 프론트 표시용 live snapshot이다. FOMO Score 계산이나
+# data/upbit_candles_snapshot.csv 등 공식 데이터셋과는 절대 섞지 않는다.
+
+def normalize_ticker(raw: dict) -> dict:
+    """Upbit ticker raw 응답 → 화면 표시용 최소 필드로 정규화."""
+    return {
+        "market": raw["market"],
+        "trade_price": raw["trade_price"],
+        "signed_change_price": raw["signed_change_price"],
+        "signed_change_rate": raw["signed_change_rate"],
+        "acc_trade_volume_24h": raw["acc_trade_volume_24h"],
+        "acc_trade_price_24h": raw["acc_trade_price_24h"],
+        "timestamp": raw["timestamp"],
+    }
+
+
+async def fetch_tickers(
+    markets: list[str] | None = None,
+    *,
+    retry_attempts: int = DEFAULT_RETRY_ATTEMPTS,
+    backoff_seconds: float = DEFAULT_BACKOFF_SECONDS,
+) -> list[dict]:
+    """여러 마켓의 현재가 스냅샷을 공개 ticker endpoint에서 조회.
+
+    인증 헤더 없음. fetch_day_candles와 동일한 retry/backoff 적용.
+    반환: normalize_ticker로 정규화된 dict 리스트 (요청 마켓 순서 유지).
+    """
+    markets = markets or DEFAULT_MARKETS
+    params = {"markets": ",".join(markets)}
+    raw = await _get_json_with_retry(
+        "/ticker",
+        params,
+        retry_attempts=retry_attempts,
+        backoff_seconds=backoff_seconds,
+    )
+    return [normalize_ticker(item) for item in raw]
 
 
 # ---------------------------------------------------------------------------
