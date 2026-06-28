@@ -349,9 +349,13 @@ function renderDemoStage() {
   const readinessTone = readinessInfo?.tone || "neutral";
   const completedPause = pauseCount === PAUSE_CHECKS.length;
   const flowFinished = completedPause || state.demoStep >= 4;
-  const pauseActive = state.demoStep >= 3 || Boolean(virtualLog) || pauseCount > 0;
+  const pauseActive = state.demoStep >= 3 || pauseCount > 0;
+  const observationVisible = Boolean(virtualLog) || state.demoStep >= 1 || pauseActive || flowFinished;
+  const routeVisible = state.demoStep >= 2 || pauseActive || flowFinished;
+  const pauseVisible = state.demoStep >= 3 || pauseCount > 0 || flowFinished;
+  const resultVisible = flowFinished;
   const activeFlowStep =
-    flowFinished ? 3 : pauseActive ? 2 : isAttempt ? 1 : 0;
+    resultVisible ? 3 : routeVisible ? 2 : observationVisible ? 1 : 0;
   const flowSteps = [
     ["1", "행동 선택", "가상 행동과 수량"],
     ["2", "데이터 확인", "공개 데이터만 사용"],
@@ -370,9 +374,11 @@ function renderDemoStage() {
   $("terminalLabel").textContent = mode.terminalLabel;
   $("terminalAction").textContent = mode.terminalAction;
   $("terminalCopy").textContent = mode.terminalCopy;
-  document
-    .querySelector(".pause-preview")
-    ?.classList.toggle("active", pauseActive);
+  document.querySelector(".workflow-grid")?.classList.toggle("single-flow", !routeVisible);
+  document.querySelector(".workflow-grid")?.classList.toggle("has-check-panel", routeVisible);
+  const checkPanel = document.querySelector(".check-panel");
+  checkPanel?.classList.toggle("flow-hidden", !routeVisible);
+  checkPanel?.classList.toggle("route-only", routeVisible && !resultVisible);
 
   document.querySelectorAll("[data-intent-mode]").forEach((button) => {
     button.classList.toggle("active", button.getAttribute("data-intent-mode") === state.intentMode);
@@ -451,6 +457,7 @@ function renderDemoStage() {
     </div>
   `;
 
+  $("observationConsole").className = `observation-console ${observationVisible ? "is-visible" : "flow-hidden"}`;
   $("observationConsole").innerHTML = `
     <div class="observation-head">
       <div>
@@ -481,6 +488,9 @@ function renderDemoStage() {
         <p>방향 단정 없음</p>
       </div>
     </div>
+    <button class="stage-next-button" type="button" data-confirm-observation ${routeVisible ? "disabled" : ""}>
+      ${routeVisible ? "공개 데이터 확인 완료" : "공개 데이터 확인 완료"}
+    </button>
   `;
 
   const ticketLabel = ticketMode === "sell" ? "가상 매도 티켓" : ticketMode === "buy" ? "가상 매수 티켓" : "가상 행동 대기";
@@ -494,7 +504,7 @@ function renderDemoStage() {
     : isAttempt
       ? ["가상 행동 감지", "주문 대신 점검으로 이동"]
       : ["행동 대기", "가상 매수 또는 매도를 먼저 선택"];
-  $("intentTicket").className = `intent-ticket ${mode.tone}`;
+  $("intentTicket").className = `intent-ticket ${mode.tone} ${routeVisible ? "is-visible" : "flow-hidden"}`;
   $("intentTicket").innerHTML = `
     <div class="ticket-head">
       <div>
@@ -512,10 +522,14 @@ function renderDemoStage() {
       <strong>${escapeHtml(routeState[1])}</strong>
     </div>
     <p>${escapeHtml(ticketCopy)}</p>
-    <button class="blocked-submit ${isAttempt ? mode.tone : "neutral"}" type="button" data-open-pause ${isAttempt ? "" : "disabled"}>
+    <button class="blocked-submit ${isAttempt ? mode.tone : "neutral"}" type="button" data-open-pause ${isAttempt && routeVisible ? "" : "disabled"}>
       ${isAttempt ? "Decision Pause로 이동" : "행동 선택 후 이동"}
     </button>
   `;
+  const preview = document.querySelector(".pause-preview");
+  if (preview) {
+    preview.className = `pause-preview ${pauseVisible ? "is-visible" : "flow-hidden"} ${pauseActive ? "active" : ""}`;
+  }
   document.querySelector(".pause-live-status")?.remove();
   $("quickPauseList").insertAdjacentHTML(
     "beforebegin",
@@ -540,7 +554,7 @@ function renderDemoStage() {
       <strong>${escapeHtml(activePause.title)}</strong>
       <p>${escapeHtml(activePause.copy)}</p>
       <button class="slide-check" type="button" data-check-id="${escapeHtml(activePause.id)}" aria-pressed="${state.pauseChecks[activePause.id]}" ${pauseActive ? "" : "disabled"}>
-        ${pauseActive ? (state.pauseChecks[activePause.id] ? "확인 완료" : "확인") : "점검 시작 후 확인"}
+        ${pauseActive ? (state.pauseChecks[activePause.id] ? "확인 완료" : "확인") : "Decision Pause 시작 후 확인"}
       </button>
     </div>
     <div class="pause-slide-controls" aria-label="Decision Pause 슬라이드 이동">
@@ -571,7 +585,7 @@ function renderDemoStage() {
       ? `${pauseCount}/${PAUSE_CHECKS.length}개 문항을 확인했습니다. 결론을 서두르지 않고 보고서에서 근거를 다시 봅니다.`
       : "가상 행동과 공개 데이터를 확인한 뒤 이 영역에 마지막 정리가 표시됩니다.";
   const resultMode = completedPause || flowFinished ? "active" : "";
-  $("decisionResult").className = `decision-result ${resultMode}`;
+  $("decisionResult").className = `decision-result ${resultMode} ${resultVisible ? "is-visible" : "flow-hidden"}`;
   $("decisionResult").innerHTML = `
     <div class="result-head">
       <span>4단계</span>
@@ -1150,9 +1164,27 @@ document.addEventListener("click", (event) => {
     state.intentMode = mode;
     state.virtualOrderLog = {
       title: `${label} ${amount} 입력 후 차단`,
-      copy: "화면 안에서 전송 시도만 기록하고 Decision Pause로 전환했습니다. Upbit 주문 API, API Key, Secret Key는 사용하지 않습니다.",
+      copy: "화면 안에서 전송 시도만 기록하고 공개 데이터 확인으로 전환했습니다. Upbit 주문 API, API Key, Secret Key는 사용하지 않습니다.",
     };
-    activateDecisionPause();
+    state.demoStep = Math.max(state.demoStep, 1);
+    state.demoScriptIndex = 3;
+    renderDemoStage();
+    window.requestAnimationFrame(() => {
+      $("observationConsole")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return;
+  }
+
+  const confirmObservationButton = event.target.closest("[data-confirm-observation]");
+  if (confirmObservationButton) {
+    event.preventDefault();
+    clearDemoTimers();
+    state.demoStep = Math.max(state.demoStep, 2);
+    state.demoScriptIndex = 4;
+    renderDemoStage();
+    window.requestAnimationFrame(() => {
+      $("intentTicket")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
     return;
   }
 
