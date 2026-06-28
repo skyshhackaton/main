@@ -8,6 +8,7 @@ async 함수는 asyncio.run()으로 실행해 별도 플러그인 설정 없이 
 import asyncio
 
 import httpx
+import pytest
 
 from app import upbit_client
 
@@ -123,6 +124,148 @@ def test_fetch_day_candles_retries_timeout_then_success(monkeypatch):
 
     assert len(calls) == 2
     assert result == [raw]
+
+
+# ---------------------------------------------------------------------------
+# fetch_tickers / normalize_ticker (display-only public ticker)
+# ---------------------------------------------------------------------------
+
+def _raw_ticker(market: str, price: float) -> dict:
+    return {
+        "market": market,
+        "trade_price": price,
+        "signed_change_price": 1000.0,
+        "signed_change_rate": 0.0012,
+        "acc_trade_volume_24h": 1234.56,
+        "acc_trade_price_24h": 123456789000.0,
+        "timestamp": 1780000000000,
+        "extra_field_should_be_dropped": "x",
+    }
+
+
+def test_normalize_ticker_keeps_only_display_fields():
+    out = upbit_client.normalize_ticker(_raw_ticker("KRW-BTC", 91382000))
+    assert out == {
+        "market": "KRW-BTC",
+        "trade_price": 91382000,
+        "signed_change_price": 1000.0,
+        "signed_change_rate": 0.0012,
+        "acc_trade_volume_24h": 1234.56,
+        "acc_trade_price_24h": 123456789000.0,
+        "timestamp": 1780000000000,
+    }
+
+
+def test_fetch_tickers_calls_public_endpoint_with_joined_markets(monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, path, params):
+            calls.append((path, params))
+            request = httpx.Request("GET", f"{upbit_client.UPBIT_BASE_URL}{path}")
+            body = [_raw_ticker("KRW-BTC", 91382000), _raw_ticker("KRW-ETH", 4500000)]
+            return httpx.Response(200, json=body, request=request)
+
+    monkeypatch.setattr(upbit_client.httpx, "AsyncClient", FakeClient)
+
+    result = asyncio.run(
+        upbit_client.fetch_tickers(["KRW-BTC", "KRW-ETH"], backoff_seconds=0)
+    )
+
+    assert calls[0][0] == "/ticker"
+    assert calls[0][1] == {"markets": "KRW-BTC,KRW-ETH"}
+    assert [row["market"] for row in result] == ["KRW-BTC", "KRW-ETH"]
+    assert "extra_field_should_be_dropped" not in result[0]
+
+
+def test_fetch_tickers_defaults_to_default_markets(monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, path, params):
+            calls.append((path, params))
+            request = httpx.Request("GET", f"{upbit_client.UPBIT_BASE_URL}{path}")
+            return httpx.Response(200, json=[], request=request)
+
+    monkeypatch.setattr(upbit_client.httpx, "AsyncClient", FakeClient)
+
+    asyncio.run(upbit_client.fetch_tickers(backoff_seconds=0))
+    assert calls[0][1] == {"markets": ",".join(upbit_client.DEFAULT_MARKETS)}
+
+
+def test_fetch_tickers_retries_429_then_success(monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, path, params):
+            calls.append((path, params))
+            request = httpx.Request("GET", f"{upbit_client.UPBIT_BASE_URL}{path}")
+            if len(calls) == 1:
+                return httpx.Response(429, request=request)
+            return httpx.Response(200, json=[_raw_ticker("KRW-BTC", 1)], request=request)
+
+    monkeypatch.setattr(upbit_client.httpx, "AsyncClient", FakeClient)
+
+    result = asyncio.run(
+        upbit_client.fetch_tickers(["KRW-BTC"], retry_attempts=2, backoff_seconds=0)
+    )
+
+    assert len(calls) == 2
+    assert result[0]["market"] == "KRW-BTC"
+
+
+def test_fetch_tickers_does_not_retry_on_404(monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, path, params):
+            calls.append((path, params))
+            request = httpx.Request("GET", f"{upbit_client.UPBIT_BASE_URL}{path}")
+            return httpx.Response(404, request=request)
+
+    monkeypatch.setattr(upbit_client.httpx, "AsyncClient", FakeClient)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        asyncio.run(
+            upbit_client.fetch_tickers(["KRW-BTC"], retry_attempts=3, backoff_seconds=0)
+        )
+    assert len(calls) == 1
 
 
 # ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@ from app.knn_pattern import (
     build_fomo_pattern_forecast,
 )
 from app.train_common import DEFAULT_CSV, load_candles_from_csv
-from app.upbit_client import DEFAULT_MARKET, load_candles
+from app.upbit_client import DEFAULT_MARKET, DEFAULT_MARKETS, fetch_tickers, load_candles
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -36,6 +36,11 @@ app.add_middleware(
 
 DISCLAIMER = "본 지수는 시장 상태 관찰 도구이며 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
 HISTORY_DISCLAIMER = "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+TICKER_DISCLAIMER = (
+    "현재가, 등락률, 거래량은 Upbit 공개 시세를 표시용으로 제공하는 값이며 "
+    "FOMO Score 계산이나 과거 참고 사례 산출에는 사용되지 않습니다. "
+    + DISCLAIMER
+)
 DECISION_PAUSE_QUESTIONS = [
     {
         "id": "reason_check",
@@ -87,12 +92,43 @@ def _require_non_negative_number(name: str, value: float) -> None:
         raise HTTPException(status_code=400, detail=f"{name} must be non-negative")
 
 
+def _parse_ticker_markets(markets: str | None) -> list[str]:
+    if markets:
+        market_list = [market.strip().upper() for market in markets.split(",") if market.strip()]
+    else:
+        market_list = list(DEFAULT_MARKETS)
+    if not market_list:
+        raise HTTPException(status_code=400, detail="markets must not be empty")
+
+    unsupported = [market for market in market_list if market not in DEFAULT_MARKETS]
+    if unsupported:
+        allowed = ", ".join(DEFAULT_MARKETS)
+        raise HTTPException(status_code=400, detail=f"markets must be one of: {allowed}")
+    return market_list
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {
         "status": "ok",
         "service": "fomo-break-api",
         "disclaimer": DISCLAIMER,
+    }
+
+
+@app.get("/api/ticker")
+async def get_ticker(markets: str | None = None) -> dict:
+    market_list = _parse_ticker_markets(markets)
+    try:
+        items = await fetch_tickers(market_list)
+    except Exception as exc:  # noqa: BLE001 - isolate public upstream failures.
+        raise HTTPException(
+            status_code=502, detail=f"ticker fetch failed: {type(exc).__name__}"
+        ) from exc
+
+    return {
+        "items": items,
+        "disclaimer": TICKER_DISCLAIMER,
     }
 
 

@@ -170,6 +170,7 @@ uvicorn app.main:app --reload
 
 ```text
 GET http://localhost:8000/api/health
+GET http://localhost:8000/api/ticker
 GET http://localhost:8000/api/fomo-score?market=KRW-BTC
 GET http://localhost:8000/api/fomo-history?market=KRW-BTC
 GET http://localhost:8000/api/decision-pause
@@ -202,11 +203,32 @@ python -m http.server 5173
 http://127.0.0.1:5173
 ```
 
-화면은 현재 FOMO Score, 시장 레이더, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, KNN 패턴 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `세 마켓 비교`, `오차 범위`, `과거 유사 구간`, `패턴 분포`, `자기 점검 체크리스트`를 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
+화면은 현재 FOMO Score, 표시용 현재가, 시장 레이더, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, KNN 패턴 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `세 마켓 비교`, `오차 범위`, `과거 유사 구간`, `패턴 분포`, `자기 점검 체크리스트`를 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
 
 ---
 
 ## API 설계 초안
+
+### GET /api/ticker
+
+Upbit 공개 ticker endpoint 기반의 표시용 live snapshot을 반환합니다. 이 값은 FOMO Score 계산, Historical Mirror, KNN 패턴, 공식 CSV 데이터셋에 사용하지 않습니다.
+
+```json
+{
+  "items": [
+    {
+      "market": "KRW-BTC",
+      "trade_price": 91382000,
+      "signed_change_price": 65000,
+      "signed_change_rate": 0.0012,
+      "acc_trade_volume_24h": 1234.56,
+      "acc_trade_price_24h": 123456789000,
+      "timestamp": 1780000000000
+    }
+  ],
+  "disclaimer": "현재가, 등락률, 거래량은 Upbit 공개 시세를 표시용으로 제공하는 값이며 FOMO Score 계산이나 과거 참고 사례 산출에는 사용되지 않습니다."
+}
+```
 
 ### GET /api/fomo-score
 

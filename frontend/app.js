@@ -28,6 +28,7 @@ const state = {
   overview: null,
   forecast: null,
   pattern: null,
+  ticker: null,
   health: null,
   marketSnapshots: [],
   errors: {},
@@ -64,6 +65,18 @@ const formatScore = (value) => (Number.isFinite(value) ? value.toFixed(2) : "--"
 const formatPercent = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "N/A";
   return `${(Number(value) * 100).toFixed(2)}%`;
+};
+
+const formatKrw = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "N/A";
+  return Number(value).toLocaleString("ko-KR");
+};
+
+const formatSignedPercent = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "N/A";
+  const numeric = Number(value) * 100;
+  const prefix = numeric > 0 ? "+" : "";
+  return `${prefix}${numeric.toFixed(2)}%`;
 };
 
 const escapeHtml = (value) =>
@@ -167,6 +180,7 @@ function renderCurrent() {
 
 function renderMarketRadar() {
   const snapshots = state.marketSnapshots;
+  const tickers = new Map((state.ticker?.items || []).map((item) => [item.market, item]));
   if (!snapshots.length) {
     $("marketRadar").innerHTML = `<div class="empty-state">선택한 마켓 기준으로 관찰 중입니다.</div>`;
     $("radarSummary").textContent = state.errors.radar ? "일부 확인 필요" : "계산 중";
@@ -193,6 +207,8 @@ function renderMarketRadar() {
     .map((item) => {
       const score = Number(item.current.score);
       const isActive = item.market === state.market;
+      const ticker = tickers.get(item.market);
+      const tickerTone = Number(ticker?.signed_change_rate || 0) > 0 ? "up" : "down";
       return `
         <button class="market-card ${isActive ? "active" : ""}" type="button" data-market="${escapeHtml(item.market)}">
           <div class="market-card-top">
@@ -202,6 +218,14 @@ function renderMarketRadar() {
             </div>
             <div class="market-score">${formatScore(score)}</div>
           </div>
+          ${
+            ticker
+              ? `<div class="ticker-line">
+                  <span>${formatKrw(ticker.trade_price)} KRW</span>
+                  <strong class="${tickerTone}">${formatSignedPercent(ticker.signed_change_rate)}</strong>
+                </div>`
+              : `<div class="ticker-line muted">현재가 표시 대기</div>`
+          }
           <div class="market-bar" aria-hidden="true"><span style="width:${Math.max(0, Math.min(100, score))}%"></span></div>
           <p class="market-note">${escapeHtml(item.current.description)}</p>
         </button>
@@ -567,12 +591,13 @@ async function loadDashboard() {
       `/api/mvp-overview?market=${encodeURIComponent(market)}&history_days=120&mirror_days=200&tolerance=10&max_periods=5`,
     );
 
-    const [healthResult, forecastResult, patternResult, radarResults] = await Promise.all([
+    const [healthResult, forecastResult, patternResult, tickerResult, radarResults] = await Promise.all([
       fetchOptional("/api/health"),
       fetchOptional(`/api/score-forecast?market=${encodeURIComponent(market)}&days=200`),
       fetchOptional(
         `/api/knn-pattern?market=${encodeURIComponent(market)}&window=10&horizon=30&k=10&metric=raw`,
       ),
+      fetchOptional(`/api/ticker?markets=${MARKETS.map(encodeURIComponent).join(",")}`),
       Promise.all(
         MARKETS.map((item) =>
           fetchOptional(
@@ -590,12 +615,14 @@ async function loadDashboard() {
     if (healthResult.error) state.errors.health = healthResult.error;
     if (forecastResult.error) state.errors.forecast = forecastResult.error;
     if (patternResult.error) state.errors.pattern = patternResult.error;
+    if (tickerResult.error) state.errors.ticker = tickerResult.error;
     if (radarResults.some((result) => result.error)) state.errors.radar = true;
 
     state.health = healthResult.data;
     state.overview = overview;
     state.forecast = forecastResult.data;
     state.pattern = patternResult.data;
+    state.ticker = tickerResult.data;
     state.marketSnapshots = marketSnapshots;
     renderAll();
     const hasOptionalErrors = Object.keys(state.errors).length > 0;
