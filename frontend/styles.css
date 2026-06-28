@@ -2847,15 +2847,15 @@ body {
 }
 
 .attempt-card.buy.active {
-  border-color: #f0a51a;
-  background: rgba(240, 165, 26, 0.13);
+  border-color: rgba(240, 165, 26, 0.48);
+  background: rgba(255, 255, 255, 0.1);
   box-shadow: none;
   transform: none;
 }
 
 .attempt-card.sell.active {
-  border-color: #d94848;
-  background: rgba(217, 72, 72, 0.13);
+  border-color: rgba(217, 72, 72, 0.5);
+  background: rgba(255, 255, 255, 0.1);
   box-shadow: none;
   transform: none;
 }
@@ -3162,6 +3162,37 @@ body {
   border-color: #2d9b6d;
   background: #2d9b6d;
   color: #ffffff;
+}
+
+.blocked-submit.warn {
+  border-color: #9a6500;
+  background: #9a6500;
+  color: #ffffff;
+}
+
+.blocked-submit.alert {
+  border-color: #b4232f;
+  background: #b4232f;
+  color: #ffffff;
+}
+
+.blocked-submit:hover,
+.blocked-submit:focus-visible {
+  border-color: #176449;
+  background: #176449;
+  color: #ffffff;
+}
+
+.blocked-submit.warn:hover,
+.blocked-submit.warn:focus-visible {
+  border-color: #7c4f00;
+  background: #7c4f00;
+}
+
+.blocked-submit.alert:hover,
+.blocked-submit.alert:focus-visible {
+  border-color: #8f1d29;
+  background: #8f1d29;
 }
 
 .blocked-submit:disabled {
