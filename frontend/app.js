@@ -675,6 +675,18 @@ function renderDemoStage() {
     : flowFinished
       ? `${pauseCount}/${PAUSE_CHECKS.length}개 문항을 확인했습니다. 결론을 서두르지 않고 보고서에서 근거를 다시 봅니다.`
       : "가상 행동과 공개 데이터를 확인한 뒤 이 영역에 마지막 정리가 표시됩니다.";
+  const pauseResultItems = PAUSE_CHECKS.map((item) => {
+    const checked = Boolean(state.pauseChecks[item.id]);
+    return `
+      <div class="pause-result-item ${checked ? "checked" : "unchecked"}">
+        <span>${checked ? "확인" : "미확인"}</span>
+        <div>
+          <strong>${escapeHtml(item.title)}</strong>
+          <p>${escapeHtml(item.shortCopy)}</p>
+        </div>
+      </div>
+    `;
+  }).join("");
   const resultMode = completedPause || flowFinished ? "active" : "";
   $("decisionResult").className = `decision-result ${resultMode} ${resultVisible ? "is-visible" : "flow-hidden"}`;
   $("decisionResult").innerHTML = `
@@ -683,6 +695,9 @@ function renderDemoStage() {
       <strong>${escapeHtml(resultTitle)}</strong>
     </div>
     <p>${escapeHtml(resultCopy)}</p>
+    <div class="pause-result-list" aria-label="Decision Pause 확인 상태">
+      ${pauseResultItems}
+    </div>
     <button class="report-link-button" type="button" data-open-report>
       자세한 분석은 보고서를 확인하세요
     </button>
