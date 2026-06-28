@@ -188,6 +188,12 @@ const formatSignedPercent = (value) => {
 
 const formatShortDate = (value) => String(value || "").split("T")[0] || "확인 중";
 
+const formatCompactDate = (value) => {
+  const date = formatShortDate(value);
+  const parts = date.split("-");
+  return parts.length === 3 ? `${parts[1]}-${parts[2]}` : date;
+};
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -336,10 +342,10 @@ function renderDemoStage() {
   const readinessValue = readinessInfo ? Math.round(readinessInfo.readiness) : "--";
   const readinessTone = readinessInfo?.tone || "neutral";
   const observationFlow = [
-    ["1", "현재가", ticker ? "표시 중" : "확인 중"],
-    ["2", "사례", topMirror ? formatShortDate(topMirror.date) : `${mirrorCount}개`],
-    ["3", "오차", longest ? `±${formatScore(Number(longest.error_band))}` : "계산 중"],
-    ["4", "점검", `${pauseCount}/${PAUSE_CHECKS.length}`],
+    ["현재가", ticker ? "표시" : "확인"],
+    ["사례", topMirror ? formatCompactDate(topMirror.date) : `${mirrorCount}개`],
+    ["오차", longest ? `±${formatScore(Number(longest.error_band))}` : "계산"],
+    ["점검", `${pauseCount}/${PAUSE_CHECKS.length}`],
   ];
   const selectedCopy = isAttempt
     ? "아래 장면은 사용자가 행동 버튼을 누른 직후입니다. 가상 수량 입력과 전송 시도는 화면 안에서만 처리됩니다."
@@ -489,11 +495,9 @@ function renderDemoStage() {
     <div class="observation-flow" aria-label="공개 데이터 관찰 흐름">
       ${observationFlow
         .map(
-          ([index, label, value]) => `
+          ([label, value]) => `
             <div>
-              <span>${escapeHtml(index)}</span>
-              <strong>${escapeHtml(label)}</strong>
-              <p>${escapeHtml(value)}</p>
+              <strong>${escapeHtml(`${label} ${value}`)}</strong>
             </div>
           `,
         )
@@ -528,7 +532,7 @@ function renderDemoStage() {
     </div>
     <p>${escapeHtml(ticketCopy)}</p>
     <button class="blocked-submit ${isAttempt ? mode.tone : "neutral"}" type="button" data-open-pause>
-      ${isAttempt ? "주문 전송 없이 Decision Pause 열기" : "Decision Pause 바로 열기"}
+      점검 열기
     </button>
   `;
   $("intentTicket").querySelectorAll("[data-intent-mode]").forEach((button) => {
