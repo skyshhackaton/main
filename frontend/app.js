@@ -372,7 +372,7 @@ function renderDemoStage() {
   const activeScript = DEMO_SCRIPT[state.demoScriptIndex] || DEMO_SCRIPT[0];
   $("demoCaption").textContent = state.demoStartedAt ? activeScript.title : "발표 속도에 맞춰 천천히 전환됩니다.";
   $("demoScript").innerHTML = `
-    <span>Presentation cue</span>
+    <span>현재 단계</span>
     <strong>${escapeHtml(activeScript.title)}</strong>
     <p>${escapeHtml(activeScript.copy)}</p>
   `;
@@ -461,7 +461,7 @@ function renderDemoStage() {
         <span>PUBLIC DATA OBSERVATION</span>
         <strong>${escapeHtml(state.market)}</strong>
       </div>
-      <em>실시간 주문 화면이 아닌 관찰 화면</em>
+      <em>주문 없음 · 관찰</em>
     </div>
     <div class="observation-main">
       <div class="observation-score">
