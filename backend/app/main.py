@@ -2,6 +2,7 @@
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.fomo_score import score_at, score_series
+from app.historical_mirror import build_historical_mirror
 from app.upbit_client import DEFAULT_MARKET, load_candles
 
 app = FastAPI(
@@ -55,5 +56,25 @@ def get_fomo_history(market: str = DEFAULT_MARKET, days: int = 200) -> dict:
         "market": market,
         "days": days,
         "items": score_series(candles, days),
+        "disclaimer": HISTORY_DISCLAIMER,
+    }
+
+
+@app.get("/api/historical-mirror")
+def get_historical_mirror(
+    market: str = DEFAULT_MARKET,
+    tolerance: float = 10.0,
+    days: int = 200,
+    max_periods: int = 20,
+) -> dict:
+    candles = _load_or_404(market)
+    return {
+        "market": market,
+        **build_historical_mirror(
+            candles,
+            tolerance=tolerance,
+            days=days,
+            max_periods=max_periods,
+        ),
         "disclaimer": HISTORY_DISCLAIMER,
     }

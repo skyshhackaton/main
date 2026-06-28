@@ -172,6 +172,7 @@ uvicorn app.main:app --reload
 GET http://localhost:8000/api/health
 GET http://localhost:8000/api/fomo-score?market=KRW-BTC
 GET http://localhost:8000/api/fomo-history?market=KRW-BTC
+GET http://localhost:8000/api/historical-mirror?market=KRW-BTC
 ```
 
 ### Frontend
@@ -227,6 +228,35 @@ GET http://localhost:8000/api/fomo-history?market=KRW-BTC
       "grade": "탐욕"
     }
   ],
+  "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+}
+```
+
+### GET /api/historical-mirror
+
+현재 FOMO Score와 유사했던 과거 구간 및 참고 통계를 반환합니다.
+
+```json
+{
+  "market": "KRW-BTC",
+  "current_score": 73.2,
+  "current_grade": "탐욕",
+  "similar_periods": [
+    {
+      "date": "2025-11-09T00:00:00",
+      "score": 78.4,
+      "grade": "탐욕",
+      "score_gap": 5.2,
+      "ret_3d": -0.021,
+      "ret_7d": -0.084,
+      "ret_30d": 0.052,
+      "summary": "당시 FOMO Score는 78.4점(탐욕)으로 현재와 유사한 시장 심리 구간이었습니다."
+    }
+  ],
+  "stats": {
+    "sample_count": 12,
+    "positive_rate_7d": 0.42
+  },
   "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
 }
 ```

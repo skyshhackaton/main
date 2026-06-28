@@ -82,20 +82,45 @@ Response draft:
 
 현재와 유사한 과거 구간을 반환합니다.
 
-MVP에서는 FOMO Score와 주요 구성 요소 벡터의 거리 또는 코사인 유사도를 사용합니다.
+MVP에서는 현재 FOMO Score와 ± tolerance 범위로 유사했던 과거 구간을 찾고, 해당 과거 구간 이후의 3일/7일/30일 변동을 참고 통계로 집계합니다. 이 통계는 과거 참고 사례이며 미래 예측으로 표현하지 않습니다.
+
+Query:
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| market | KRW-BTC | 업비트 마켓 코드 |
+| tolerance | 10 | 현재 점수와 유사하다고 볼 점수 범위 |
+| days | 200 | 탐색할 최근 시계열 길이 |
+| max_periods | 20 | 응답에 포함할 최대 유사 구간 수 |
 
 ```json
 {
   "market": "KRW-BTC",
-  "current_date": "2026-06-28",
+  "current_date": "2026-06-28T00:00:00",
+  "current_score": 73.2,
+  "current_grade": "탐욕",
+  "tolerance": 10,
   "similar_periods": [
     {
       "date": "2025-11-09",
-      "similarity": 0.91,
       "score": 78.4,
-      "summary": "당시에도 거래량 모멘텀과 연속 상승 점수가 높았습니다."
+      "grade": "탐욕",
+      "score_gap": 5.2,
+      "ret_3d": -0.021,
+      "ret_7d": -0.084,
+      "ret_30d": 0.052,
+      "summary": "당시 FOMO Score는 78.4점(탐욕)으로 현재와 유사한 시장 심리 구간이었습니다."
     }
-  ]
+  ],
+  "stats": {
+    "sample_count": 12,
+    "mean_3d": -0.012,
+    "std_3d": 0.041,
+    "positive_rate_3d": 0.42,
+    "sample_count_3d": 12
+  },
+  "summary": "최근 시계열에서 현재 점수와 ±10 범위로 유사한 과거 구간 12개를 찾았습니다. 과거 참고 통계이며 미래 성과를 보장하지 않습니다.",
+  "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
 }
 ```
 
