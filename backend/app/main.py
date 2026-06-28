@@ -68,13 +68,18 @@ def get_historical_mirror(
     max_periods: int = 20,
 ) -> dict:
     candles = _load_or_404(market)
-    return {
-        "market": market,
-        **build_historical_mirror(
+    try:
+        mirror = build_historical_mirror(
             candles,
             tolerance=tolerance,
             days=days,
             max_periods=max_periods,
-        ),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "market": market,
+        **mirror,
         "disclaimer": HISTORY_DISCLAIMER,
     }
