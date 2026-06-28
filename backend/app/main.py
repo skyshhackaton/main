@@ -2,7 +2,9 @@
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.fomo_score import score_at, score_series
+from app.forecast_score import build_score_forecast
 from app.historical_mirror import build_historical_mirror
+from app.knn_mirror import build_knn_mirror
 from app.upbit_client import DEFAULT_MARKET, load_candles
 
 app = FastAPI(
@@ -148,6 +150,58 @@ def get_historical_mirror(
             tolerance=tolerance,
             days=days,
             max_periods=max_periods,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "market": market,
+        **mirror,
+        "disclaimer": HISTORY_DISCLAIMER,
+    }
+
+
+FORECAST_DISCLAIMER = (
+    "예측 대상은 시장 심리 상태값(FOMO Score)이며 가격·수익률 예측이 아닙니다. "
+    "참고용 관찰 지표일 뿐 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
+)
+
+
+@app.get("/api/score-forecast")
+def get_score_forecast(
+    market: str = DEFAULT_MARKET,
+    lags: int = 5,
+    days: int = 200,
+) -> dict:
+    candles = _load_or_404(market)
+    try:
+        forecast = build_score_forecast(
+            candles,
+            lags=lags,
+            days=days,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "market": market,
+        **forecast,
+        "disclaimer": FORECAST_DISCLAIMER,
+    }
+
+
+@app.get("/api/knn-mirror")
+def get_knn_mirror(
+    market: str = DEFAULT_MARKET,
+    n_neighbors: int = 5,
+    days: int = 200,
+) -> dict:
+    candles = _load_or_404(market)
+    try:
+        mirror = build_knn_mirror(
+            candles,
+            n_neighbors=n_neighbors,
+            days=days,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
