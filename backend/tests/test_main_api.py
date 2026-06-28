@@ -157,6 +157,22 @@ def test_score_forecast_endpoint_rejects_invalid_args(monkeypatch):
     assert response.json()["detail"] == "lags must be positive"
 
 
+def test_score_forecast_endpoint_exposes_uncertainty_fields(monkeypatch):
+    monkeypatch.setattr(main, "load_candles", lambda market: _make_candles())
+
+    response = client.get("/api/score-forecast?market=KRW-BTC&days=120")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["method_label"] == "FOMO Score 흐름 참고"
+    assert "가격·수익률 예측이 아닙니다" in data["disclaimer"]
+    first = data["forecast"][0]
+    assert "error_band" in first
+    assert "trend_direction" in first
+    assert "confidence_level" in first
+    assert "interpretation" in first
+
+
 def test_missing_market_data_returns_404(monkeypatch):
     monkeypatch.setattr(main, "load_candles", lambda market: [])
 

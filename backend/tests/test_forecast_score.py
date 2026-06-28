@@ -45,6 +45,15 @@ def test_supervised_target_is_future_score_no_leakage():
 def test_forecast_returns_entry_per_horizon_with_valid_grade():
     result = build_score_forecast(_make_candles(), days=120)
 
+    assert result["method_label"] == "FOMO Score 흐름 참고"
+    assert result["comparison_basis"] == [
+        "fomo_score_lags",
+        "change_rate_1d",
+        "volume_ratio_5_20",
+        "rsi_14",
+    ]
+    assert "가격/수익률 예측" in result["caution"]
+
     horizons = [f["horizon_days"] for f in result["forecast"]]
     assert horizons == sorted(set(DEFAULT_HORIZONS))
 
@@ -55,6 +64,10 @@ def test_forecast_returns_entry_per_horizon_with_valid_grade():
         # grade가 예측 점수와 일관적인지
         assert entry["grade"] == classify_grade(score)[0]
         assert entry["backtest_mae"] is None or entry["backtest_mae"] >= 0.0
+        assert entry["error_band"] == entry["backtest_mae"]
+        assert entry["trend_direction"] in {"rising", "falling", "within_error_band"}
+        assert entry["confidence_level"] in {"high", "medium", "low"}
+        assert entry["interpretation"]
 
 
 def test_forecast_is_deterministic():
@@ -69,9 +82,25 @@ def test_forecast_is_deterministic():
 def test_summary_avoids_price_language():
     """컴플라이언스: 요약 문구가 가격/수익률이 아닌 심리 상태 관찰로 표현되는지."""
     result = build_score_forecast(_make_candles(), days=120)
-    assert "심리" in result["summary"]
-    assert "수익률" not in result["summary"] or "예측이나" in result["summary"]
-    assert "투자 추천" in result["summary"]
+    combined = " ".join(
+        [result["summary"], result["caution"]]
+        + [entry["interpretation"] for entry in result["forecast"]]
+    )
+    assert "FOMO Score" in combined
+    assert "가격/수익률 예측" in combined
+    assert "투자 추천" in combined
+    assert "사세요" not in combined
+    assert "파세요" not in combined
+
+
+def test_small_delta_is_not_reported_as_directional_trend():
+    """변화폭이 백테스트 오차 범위 안이면 방향을 단정하지 않는다."""
+    result = build_score_forecast(_make_candles(), days=120)
+
+    for entry in result["forecast"]:
+        if abs(entry["score_delta"]) <= max(1.0, entry["error_band"] or 0.0):
+            assert entry["trend_direction"] == "within_error_band"
+            assert "방향으로 단정하지 않습니다" in entry["interpretation"]
 
 
 def test_invalid_arguments_are_rejected():
