@@ -1137,12 +1137,100 @@ button:disabled {
   background: rgba(245, 194, 81, 0.16);
   color: #ffe2a0;
   font-weight: 900;
-  cursor: not-allowed;
+  cursor: pointer;
+  white-space: normal;
+}
+
+.blocked-submit:hover,
+.blocked-submit:focus-visible {
+  border-color: rgba(245, 194, 81, 0.9);
+  background: rgba(245, 194, 81, 0.26);
+  color: #ffffff;
+}
+
+.blocked-submit.alert {
+  border-color: rgba(201, 79, 79, 0.56);
+  background: rgba(201, 79, 79, 0.2);
+  color: #ffd4d4;
 }
 
 .pause-preview {
   border: 1px solid rgba(45, 155, 109, 0.32);
   background: rgba(45, 155, 109, 0.09);
+}
+
+.pause-preview.active {
+  border-color: rgba(45, 155, 109, 0.82);
+  background:
+    linear-gradient(180deg, rgba(45, 155, 109, 0.18), rgba(45, 155, 109, 0.08)),
+    rgba(6, 11, 18, 0.28);
+}
+
+.pause-live-status {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  background: rgba(6, 11, 18, 0.38);
+}
+
+.pause-live-status.warn {
+  border-color: rgba(245, 194, 81, 0.52);
+  background: rgba(245, 194, 81, 0.12);
+}
+
+.pause-live-status.alert {
+  border-color: rgba(201, 79, 79, 0.48);
+  background: rgba(201, 79, 79, 0.12);
+}
+
+.pause-live-status > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pause-live-status span,
+.pause-live-status strong,
+.pause-live-status p {
+  display: block;
+}
+
+.pause-live-status span {
+  color: #9fb0c3;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.pause-live-status strong {
+  color: #ffffff;
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.pause-live-status p {
+  color: #c8d3df;
+  font-size: 0.8rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.pause-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.pause-progress span {
+  height: 100%;
+  border-radius: inherit;
+  background: #2d9b6d;
+  transition: width 0.18s ease;
 }
 
 .quick-pause-list {
