@@ -586,49 +586,25 @@ button:disabled {
 }
 
 .observation-flow div {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  gap: 5px;
+  display: flex;
   align-items: center;
+  justify-content: center;
   min-height: 32px;
-  padding: 6px;
+  padding: 6px 5px;
   border: 1px solid rgba(45, 155, 109, 0.22);
   border-radius: 8px;
   background: rgba(45, 155, 109, 0.08);
 }
 
-.observation-flow span {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(45, 155, 109, 0.2);
-  color: #9fdcbf;
-  font-size: 0.7rem;
-  font-weight: 900;
-}
-
-.observation-flow strong,
-.observation-flow p {
+.observation-flow strong {
   display: block;
   min-width: 0;
-}
-
-.observation-flow strong {
   color: #ffffff;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 900;
-  white-space: nowrap;
-}
-
-.observation-flow p {
-  margin: 0;
-  color: #b8c4d2;
-  font-size: 0.68rem;
-  font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.1;
   overflow: hidden;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1192,12 +1168,17 @@ button:disabled {
   width: 100%;
   height: auto;
   min-height: 34px;
+  padding: 7px 8px;
   border-color: rgba(245, 194, 81, 0.44);
   background: rgba(245, 194, 81, 0.16);
   color: #ffe2a0;
+  font-size: 0.78rem;
   font-weight: 900;
+  line-height: 1.1;
   cursor: pointer;
-  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .blocked-submit:hover,
