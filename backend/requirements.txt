@@ -5,4 +5,5 @@ pydantic>=2.8.0
 scikit-learn>=1.4.0
 xgboost>=2.0.0
 matplotlib>=3.7.0
+torch>=2.0.0  # optional: lstm_fomo 실험 (CPU 휠 권장: --index-url .../whl/cpu)
 pytest>=8.2.0

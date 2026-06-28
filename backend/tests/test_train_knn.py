@@ -9,6 +9,7 @@ from app.train_knn import (
     optimize_knn_k,
     run_training,
     train_xgb_fomo,
+    tune_xgb_fomo,
 )
 
 
@@ -117,6 +118,38 @@ def test_train_xgb_fomo_rejects_bad_args():
         train_xgb_fomo(candles, lags=0)
     with pytest.raises(ValueError):
         train_xgb_fomo(candles, horizons=(0,))
+
+
+def test_tune_xgb_fomo_selects_best_params():
+    grid = {"n_estimators": [50], "max_depth": [2, 3], "learning_rate": [0.1]}
+    result = tune_xgb_fomo(
+        _make_candles(), horizons=(1,), lags=5, param_grid=grid, n_splits=3
+    )
+    assert result["n_candidates"] == 2  # 1*2*1
+    info = result["horizons"]["1"]
+    assert info["best_params"]["max_depth"] in (2, 3)
+    assert info["cv_mae"] >= 0
+    assert info["baseline_persist_mae"] >= 0
+    assert set(info["feature_importances"].keys()) == set(result["feature_names"])
+
+
+def test_run_training_can_include_tuning(tmp_path):
+    import csv as _csv
+    cols = ["market", "date_utc", "date_kst", "open", "high", "low",
+            "close", "volume", "trade_price", "source", "crawled_at"]
+    csv_path = tmp_path / "snap.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        w = _csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        for c in _make_candles():
+            w.writerow({"market": "KRW-BTC", "date_utc": c["date_utc"], "date_kst": c["date_utc"],
+                        "open": c["open"], "high": c["high"], "low": c["low"],
+                        "close": c["close"], "volume": c["volume"],
+                        "trade_price": c["close"], "source": "t", "crawled_at": "now"})
+    report = run_training(csv_path=csv_path, market="KRW-BTC", k_values=(3, 5),
+                          horizons=(1,), n_splits=3, tune_xgb=True)
+    assert "xgboost_tuned" in report
+    assert "1" in report["xgboost_tuned"]["horizons"]
 
 
 def test_run_training_end_to_end(tmp_path):

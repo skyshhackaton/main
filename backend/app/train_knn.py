@@ -32,16 +32,43 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from app.forecast_score import DEFAULT_HORIZONS, DEFAULT_LAGS, MODEL_NAME, _build_supervised, _new_model
+from app.forecast_score import (
+    DEFAULT_HORIZONS,
+    DEFAULT_LAGS,
+    MODEL_NAME,
+    RANDOM_STATE,
+    _build_supervised,
+    _new_model,
+)
 from app.knn_mirror import FEATURE_NAMES, build_feature_matrix
 
+try:  # 튜닝 대상 추정기 (xgboost 우선, 없으면 sklearn 폴백)
+    from xgboost import XGBRegressor
+
+    _HAS_XGB = True
+except ImportError:  # pragma: no cover
+    from sklearn.ensemble import GradientBoostingRegressor as XGBRegressor  # type: ignore
+
+    _HAS_XGB = False
+
 _REPO_ROOT = Path(__file__).parent.parent.parent
-DEFAULT_CSV = _REPO_ROOT / "data" / "upbit_candles_snapshot.csv"
+# ML 학습은 깊은 히스토리(history)를 우선 사용하고, 없으면 공유 snapshot으로 폴백.
+_HISTORY_CSV = _REPO_ROOT / "data" / "upbit_candles_history.csv"
+_SNAPSHOT_CSV = _REPO_ROOT / "data" / "upbit_candles_snapshot.csv"
+DEFAULT_CSV = _HISTORY_CSV if _HISTORY_CSV.exists() else _SNAPSHOT_CSV
 DEFAULT_OUT = _REPO_ROOT / "report"
 DEFAULT_MARKET = "KRW-BTC"
 DEFAULT_K_VALUES = (3, 5, 7, 9, 11, 13, 15, 17, 19)
 DEFAULT_N_SPLITS = 5
 KNN_HORIZON = 1  # 다음 시점 FOMO 상태 예측 기준으로 k를 고른다
+
+# XGBoost 하이퍼파라미터 격자 (시계열·표본 규모에 맞춘 보수적 범위).
+XGB_PARAM_GRID = {
+    "n_estimators": [200, 400],
+    "max_depth": [2, 3, 4],
+    "learning_rate": [0.05, 0.1],
+    "subsample": [0.8, 1.0],
+}
 
 CSV_NUMERIC = ("open", "high", "low", "close", "volume")
 
@@ -235,6 +262,77 @@ def train_xgb_fomo(
     }
 
 
+def tune_xgb_fomo(
+    candles: list[dict],
+    horizons: tuple[int, ...] = DEFAULT_HORIZONS,
+    lags: int = DEFAULT_LAGS,
+    param_grid: dict | None = None,
+    days: int | None = None,
+    n_splits: int = DEFAULT_N_SPLITS,
+) -> dict:
+    """horizon별 XGBoost 하이퍼파라미터를 TimeSeriesSplit CV로 튜닝해 최고 설정 선정.
+
+    history 데이터(표본 ~1800)에서 '가장 좋은 성능'을 내는 설정을 찾는다. CV 점수는
+    look-ahead 없이 시간 순서를 보존(TimeSeriesSplit)하며, persistence baseline과
+    함께 보고한다.
+    """
+    if lags < 1:
+        raise ValueError("lags must be positive")
+    if not horizons or any(h <= 0 for h in horizons):
+        raise ValueError("horizons must be positive integers")
+    grid = param_grid or XGB_PARAM_GRID
+
+    per_horizon: dict[str, dict] = {}
+    for horizon in sorted(set(horizons)):
+        X, y, feature_names = _xgb_supervised(candles, lags, horizon, days)
+        n_samples = len(X)
+        if n_samples <= n_splits + 1:
+            per_horizon[str(horizon)] = {"n_samples": n_samples, "error": "insufficient_samples"}
+            continue
+
+        estimator = XGBRegressor(random_state=RANDOM_STATE)
+        search = GridSearchCV(
+            estimator,
+            grid,
+            scoring={"mae": "neg_mean_absolute_error", "rmse": "neg_root_mean_squared_error"},
+            refit="mae",
+            cv=TimeSeriesSplit(n_splits=n_splits),
+            n_jobs=1,
+        )
+        search.fit(X, y)
+        best = search.best_estimator_
+        importances = getattr(best, "feature_importances_", None)
+        importance_map = (
+            {name: round(float(v), 4) for name, v in zip(feature_names, importances)}
+            if importances is not None
+            else None
+        )
+        cv = search.cv_results_
+        bi = search.best_index_
+        baseline_mae = float(np.mean(np.abs(y - X[:, lags - 1])))
+
+        per_horizon[str(horizon)] = {
+            "n_samples": n_samples,
+            "best_params": search.best_params_,
+            "cv_mae": round(-float(search.best_score_), 4),
+            "cv_rmse": round(-float(cv["mean_test_rmse"][bi]), 4),
+            "baseline_persist_mae": round(baseline_mae, 4),
+            "skill_vs_persist": round(1.0 - (-float(search.best_score_)) / baseline_mae, 4)
+            if baseline_mae > 0 else None,
+            "feature_importances": importance_map,
+        }
+
+    return {
+        "model": ("XGBRegressor" if _HAS_XGB else "GradientBoostingRegressor") + " (grid-tuned)",
+        "lags": lags,
+        "n_splits": n_splits,
+        "param_grid": grid,
+        "n_candidates": int(np.prod([len(v) for v in grid.values()])),
+        "feature_names": feature_names,
+        "horizons": per_horizon,
+    }
+
+
 # ---------------------------------------------------------------------------
 # 통합 실행 + 리포트
 # ---------------------------------------------------------------------------
@@ -252,12 +350,16 @@ def run_training(
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
     lags: int = DEFAULT_LAGS,
     n_splits: int = DEFAULT_N_SPLITS,
+    tune_xgb: bool = False,
 ) -> dict:
-    """CSV 로드 → KNN k 최적화 + XGBoost 학습을 실행하고 리포트 dict 반환."""
+    """CSV 로드 → KNN k 최적화 + XGBoost 학습을 실행하고 리포트 dict 반환.
+
+    tune_xgb=True면 XGBoost 하이퍼파라미터 격자 탐색까지 수행해 최고 성능 설정을 찾는다.
+    """
     candles = load_candles_from_csv(csv_path, market)
     fm = build_feature_matrix(candles, days=len(candles))
 
-    return {
+    report = {
         "market": market,
         "csv_path": str(csv_path),
         "n_candles": len(candles),
@@ -270,6 +372,11 @@ def run_training(
         ),
         "disclaimer": DISCLAIMER,
     }
+    if tune_xgb:
+        report["xgboost_tuned"] = tune_xgb_fomo(
+            candles, horizons=horizons, lags=lags, n_splits=n_splits
+        )
+    return report
 
 
 def format_report_md(report: dict) -> str:
@@ -310,6 +417,28 @@ def format_report_md(report: dict) -> str:
             f"{info['cv_rmse']} | {info['baseline_persist_mae']} |"
         )
 
+    tuned = report.get("xgboost_tuned")
+    if tuned:
+        lines += [
+            "",
+            f"## 3. XGBoost 하이퍼파라미터 튜닝 ({tuned['model']}, {tuned['n_candidates']} combos)",
+            f"lags={tuned['lags']} · TimeSeriesSplit({tuned['n_splits']}) · grid CV로 horizon별 최고 설정",
+            "",
+            "| horizon | CV MAE | CV RMSE | baseline MAE | skill | best params |",
+            "|---:|---:|---:|---:|---:|---|",
+        ]
+        for horizon, info in tuned["horizons"].items():
+            if "error" in info:
+                lines.append(f"| {horizon}d | - | - | - | - | (표본부족) |")
+                continue
+            bp = info["best_params"]
+            bp_str = ", ".join(f"{k}={v}" for k, v in sorted(bp.items()))
+            skill = "-" if info["skill_vs_persist"] is None else f"{info['skill_vs_persist']:+.3f}"
+            lines.append(
+                f"| {horizon}d | {info['cv_mae']} | {info['cv_rmse']} | "
+                f"{info['baseline_persist_mae']} | {skill} | {bp_str} |"
+            )
+
     lines += ["", f"> {report['disclaimer']}"]
     return "\n".join(lines)
 
@@ -324,11 +453,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--csv", default=str(DEFAULT_CSV), help=f"입력 CSV (기본: {DEFAULT_CSV})")
     parser.add_argument("--market", default=DEFAULT_MARKET, help="마켓 코드 (기본: KRW-BTC)")
     parser.add_argument("--n-splits", type=int, default=DEFAULT_N_SPLITS, help="TimeSeriesSplit fold 수")
+    parser.add_argument("--no-tune", action="store_true", help="XGBoost 하이퍼파라미터 튜닝 생략")
     parser.add_argument("--out", default=str(DEFAULT_OUT), help=f"리포트 출력 디렉터리 (기본: {DEFAULT_OUT})")
     args = parser.parse_args(argv)
 
     report = run_training(
-        csv_path=Path(args.csv), market=args.market, n_splits=args.n_splits
+        csv_path=Path(args.csv), market=args.market, n_splits=args.n_splits,
+        tune_xgb=not args.no_tune,
     )
 
     out_dir = Path(args.out)
