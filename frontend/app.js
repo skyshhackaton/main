@@ -343,6 +343,26 @@ function renderDemoStage() {
       <em>${escapeHtml(selectedAction)}</em>
     </div>
     <p class="attempt-copy">${escapeHtml(selectedCopy)}</p>
+    <div class="firewall-map" aria-label="가상 행동이 실제 주문 대신 자기 점검으로 전환되는 흐름">
+      <div class="map-node trigger ${isAttempt ? "active" : ""}">
+        <span>사용자 행동</span>
+        <strong>${isAttempt ? escapeHtml(selectedLabel) : "선택 대기"}</strong>
+      </div>
+      <div class="map-link ${isAttempt ? "blocked" : ""}">
+        <span>ORDER API</span>
+      </div>
+      <div class="map-node gate active">
+        <span>FOMO Break</span>
+        <strong>주문 경로 차단</strong>
+      </div>
+      <div class="map-link evidence">
+        <span>PUBLIC DATA</span>
+      </div>
+      <div class="map-node pause ${state.demoStep >= 3 ? "active" : ""}">
+        <span>다음 화면</span>
+        <strong>Decision Pause</strong>
+      </div>
+    </div>
     <div class="attempt-body">
       <button class="attempt-card buy ${isBuy ? "active" : ""}" type="button" data-intent-mode="buy">
         <span>가상 매수 화면</span>
