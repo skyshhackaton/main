@@ -4,21 +4,25 @@ const PAUSE_CHECKS = [
   {
     id: "evidence",
     title: "근거",
+    shortCopy: "확인 정보 있음",
     copy: "가격 움직임 말고 확인한 정보가 있습니다.",
   },
   {
     id: "timing",
     title: "시점",
+    shortCopy: "뒤늦은 관심 구분",
     copy: "늦게 관심이 생긴 것인지 구분했습니다.",
   },
   {
     id: "boundary",
     title: "범위",
+    shortCopy: "감당 범위 확인",
     copy: "감당 가능한 범위와 바꿀 조건을 말할 수 있습니다.",
   },
   {
     id: "cooldown",
     title: "시간",
+    shortCopy: "멈출 시간 확보",
     copy: "지금 바로 판단하지 않아도 되는 시간을 확보했습니다.",
   },
 ];
@@ -182,6 +186,8 @@ const formatSignedPercent = (value) => {
   return `${prefix}${numeric.toFixed(2)}%`;
 };
 
+const formatShortDate = (value) => String(value || "").split("T")[0] || "확인 중";
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -330,10 +336,10 @@ function renderDemoStage() {
   const readinessValue = readinessInfo ? Math.round(readinessInfo.readiness) : "--";
   const readinessTone = readinessInfo?.tone || "neutral";
   const observationFlow = [
-    ["1", "공개 데이터", ticker ? "현재가 표시" : "연결 확인"],
-    ["2", "과거 사례", topMirror ? topMirror.date : `${mirrorCount}개 표본`],
-    ["3", "오차 범위", longest ? `±${formatScore(Number(longest.error_band))}` : "계산 중"],
-    ["4", "자기 점검", `${pauseCount}/${PAUSE_CHECKS.length}개 확인`],
+    ["1", "현재가", ticker ? "표시 중" : "확인 중"],
+    ["2", "사례", topMirror ? formatShortDate(topMirror.date) : `${mirrorCount}개`],
+    ["3", "오차", longest ? `±${formatScore(Number(longest.error_band))}` : "계산 중"],
+    ["4", "점검", `${pauseCount}/${PAUSE_CHECKS.length}`],
   ];
   const selectedCopy = isAttempt
     ? "아래 장면은 사용자가 행동 버튼을 누른 직후입니다. 가상 수량 입력과 전송 시도는 화면 안에서만 처리됩니다."
@@ -538,7 +544,7 @@ function renderDemoStage() {
           <span>판단 준비도</span>
           <strong>${escapeHtml(String(readinessValue))}</strong>
         </div>
-        <p>Decision Pause 확인 ${pauseCount}/${PAUSE_CHECKS.length}개 · 체크하면 준비도에 바로 반영됩니다.</p>
+        <p>체크 ${pauseCount}/${PAUSE_CHECKS.length} · 준비도 반영</p>
         <div class="pause-progress" aria-hidden="true">
           <span style="width:${(pauseCount / PAUSE_CHECKS.length) * 100}%"></span>
         </div>
@@ -549,7 +555,7 @@ function renderDemoStage() {
     (item) => `
       <button class="quick-pause-toggle" type="button" data-check-id="${escapeHtml(item.id)}" aria-pressed="${state.pauseChecks[item.id]}">
         <span>${escapeHtml(item.title)}</span>
-        <p>${escapeHtml(item.copy)}</p>
+        <p>${escapeHtml(item.shortCopy || item.copy)}</p>
         <strong>${state.pauseChecks[item.id] ? "확인됨" : "확인 필요"}</strong>
       </button>
     `,
