@@ -768,6 +768,125 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.virtual-order-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1.1fr);
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(6, 11, 18, 0.48);
+}
+
+.virtual-order-form label,
+.virtual-order-form span,
+.virtual-order-form p {
+  display: block;
+}
+
+.virtual-order-form span {
+  margin-bottom: 6px;
+  color: #9fb0c3;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.virtual-order-form input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  padding: 8px 10px;
+  font: inherit;
+  font-weight: 900;
+}
+
+.virtual-order-form input:disabled {
+  opacity: 0.56;
+}
+
+.virtual-order-form input:focus {
+  border-color: rgba(245, 194, 81, 0.72);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(245, 194, 81, 0.12);
+}
+
+.virtual-submit {
+  width: auto;
+  height: auto;
+  min-height: 42px;
+  padding: 9px 12px;
+  border-color: rgba(245, 194, 81, 0.56);
+  background: rgba(245, 194, 81, 0.18);
+  color: #ffe2a0;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.virtual-submit.alert {
+  border-color: rgba(201, 79, 79, 0.56);
+  background: rgba(201, 79, 79, 0.18);
+  color: #ffd4d4;
+}
+
+.virtual-submit:disabled {
+  cursor: not-allowed;
+}
+
+.virtual-order-form p {
+  color: #bdc9d8;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.virtual-order-log {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.virtual-order-log.warn {
+  border-color: rgba(245, 194, 81, 0.52);
+  background: rgba(245, 194, 81, 0.14);
+}
+
+.virtual-order-log.alert {
+  border-color: rgba(201, 79, 79, 0.5);
+  background: rgba(201, 79, 79, 0.13);
+}
+
+.virtual-order-log span,
+.virtual-order-log strong,
+.virtual-order-log p {
+  display: block;
+}
+
+.virtual-order-log span {
+  margin-bottom: 5px;
+  color: #f5c251;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.virtual-order-log strong {
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.virtual-order-log p {
+  margin-top: 6px;
+  color: #cbd7e4;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 .attempt-route {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1939,6 +2058,10 @@ button:disabled {
 
   .attempt-route {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .virtual-order-form {
+    grid-template-columns: 1fr;
   }
 }
 
