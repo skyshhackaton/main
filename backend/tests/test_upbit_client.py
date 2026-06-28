@@ -275,3 +275,47 @@ def test_refresh_markets_isolates_failure(monkeypatch, tmp_path):
     assert result["KRW-XRP"] == 5            # 실패 마켓 뒤에도 정상 실행
     assert isinstance(result["KRW-ETH"], dict)
     assert result["KRW-ETH"]["error"] == "RuntimeError"
+
+
+# ---------------------------------------------------------------------------
+# run_pipeline (증분 갱신 + 검증 통합 진입점)
+# ---------------------------------------------------------------------------
+
+def test_run_pipeline_refreshes_and_validates(monkeypatch, tmp_path):
+    """빈 DB에서 run_pipeline이 수집 후 검증 리포트까지 채워야 함."""
+    db = tmp_path / "t.db"
+    _install_fake(monkeypatch, _make_raw(_dates(1, 6)))
+
+    report = asyncio.run(upbit_client.run_pipeline(["KRW-BTC"], db))
+    assert report["KRW-BTC"]["added"] == 6
+    assert report["KRW-BTC"]["error"] is None
+    assert report["KRW-BTC"]["validation"]["ok"] is True
+    assert report["KRW-BTC"]["validation"]["count"] == 6
+
+
+def test_run_pipeline_isolates_market_failure(monkeypatch, tmp_path):
+    """한 마켓이 네트워크 실패해도 다른 마켓은 갱신·검증되어야 함."""
+    db = tmp_path / "t.db"
+    full = _make_raw(_dates(1, 5))
+
+    async def flaky(market, count=200, to=None):
+        if market == "KRW-ETH":
+            raise RuntimeError("simulated network error")
+        if to is None:
+            start = 0
+        else:
+            to_norm = to.replace(" ", "T")
+            start = next((i for i, c in enumerate(full)
+                          if c["candle_date_time_utc"] < to_norm), len(full))
+        return full[start:start + count]
+
+    monkeypatch.setattr(upbit_client, "fetch_day_candles", flaky)
+
+    report = asyncio.run(
+        upbit_client.run_pipeline(["KRW-BTC", "KRW-ETH"], db)
+    )
+    assert report["KRW-BTC"]["added"] == 5
+    assert report["KRW-BTC"]["validation"]["ok"] is True
+    assert report["KRW-ETH"]["error"] == "RuntimeError"
+    assert report["KRW-ETH"]["added"] is None
+    assert report["KRW-ETH"]["validation"] is None

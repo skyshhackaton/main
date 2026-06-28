@@ -35,6 +35,7 @@
    - 구성 요소 바 차트
    - 히스토리 차트
    - Decision Pause 질문
+   - MVP 시연용 통합 API `/api/mvp-overview` 우선 연결
 
 4. 데이터/실험
    - 유사 구간 기준 정의
