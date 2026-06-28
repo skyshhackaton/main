@@ -132,6 +132,7 @@ const state = {
   demoTimers: [],
   virtualQuantity: "0.05",
   virtualOrderLog: null,
+  pauseSlideIndex: 0,
   pauseChecks: Object.fromEntries(PAUSE_CHECKS.map((item) => [item.id, false])),
 };
 
@@ -313,6 +314,7 @@ function activateDecisionPause() {
   clearDemoTimers();
   state.demoStep = 3;
   state.demoScriptIndex = 4;
+  state.pauseSlideIndex = 0;
   renderDemoStage();
   if (state.overview) {
     renderReadiness();
@@ -337,7 +339,9 @@ function renderDemoStage() {
   const isSell = ticketMode === "sell";
   const isAttempt = isBuy || isSell;
   const selectedAction = isBuy ? "BUY INTENT" : isSell ? "SELL INTENT" : "INTENT READY";
-  const selectedLabel = isBuy ? "가상 매수 시도" : isSell ? "가상 매도 시도" : "가상 행동 대기";
+  const pauseSlideIndex = Math.max(0, Math.min(PAUSE_CHECKS.length - 1, state.pauseSlideIndex || 0));
+  state.pauseSlideIndex = pauseSlideIndex;
+  const activePause = PAUSE_CHECKS[pauseSlideIndex];
   const readinessInfo = state.overview?.current ? computeReadiness() : null;
   const readinessValue = readinessInfo ? Math.round(readinessInfo.readiness) : "--";
   const readinessTone = readinessInfo?.tone || "neutral";
@@ -348,8 +352,8 @@ function renderDemoStage() {
     ["점검", `${pauseCount}/${PAUSE_CHECKS.length}`],
   ];
   const selectedCopy = isAttempt
-    ? "아래 장면은 사용자가 행동 버튼을 누른 직후입니다. 가상 수량 입력과 전송 시도는 화면 안에서만 처리됩니다."
-    : "가상 매수 또는 가상 매도 버튼을 누르면, 이 영역이 실제 사용 장면처럼 바뀝니다.";
+    ? "수량 입력과 전송 시도는 실제 주문이 아니라 화면 안의 점검 흐름으로만 처리됩니다."
+    : "가상 매수 또는 가상 매도 버튼을 먼저 선택합니다.";
   const virtualQuantity = state.virtualQuantity || "";
   const virtualLog = state.virtualOrderLog;
 
@@ -382,46 +386,23 @@ function renderDemoStage() {
   $("attemptScene").innerHTML = `
     <div class="attempt-head">
       <div>
-        <span>STEP 1 · VIRTUAL INTENT SCREEN</span>
-        <strong>Decision Pause 전 가상 매수·매도 시도 장면</strong>
+        <span>STEP 1</span>
+        <strong>가상 행동 선택</strong>
       </div>
       <em>${escapeHtml(selectedAction)}</em>
     </div>
     <p class="attempt-copy">${escapeHtml(selectedCopy)}</p>
-    <div class="firewall-map" aria-label="가상 주문 처리 상태">
-      <div class="map-node trigger ${isAttempt ? "active" : ""}">
-        <span>입력</span>
-        <strong>${isAttempt ? escapeHtml(selectedLabel) : "가상 행동 선택"}</strong>
-      </div>
-      <div class="map-node gate active">
-        <span>차단</span>
-        <strong>주문 API 호출 없음</strong>
-      </div>
-      <div class="map-node pause ${state.demoStep >= 3 ? "active" : ""}">
-        <span>확인</span>
-        <strong>Decision Pause</strong>
-      </div>
-    </div>
     <div class="attempt-body">
       <button class="attempt-card buy ${isBuy ? "active" : ""}" type="button" data-intent-mode="buy">
-        <span>가상 매수 화면</span>
-        <strong>${isBuy ? "시도 감지" : "대기"}</strong>
-        <small>가상 수량 입력 · 실제 주문 없음</small>
+        <span>가상 매수</span>
+        <strong>${isBuy ? "선택됨" : "선택하기"}</strong>
+        <small>주문 전송 없이 점검으로 이동</small>
       </button>
       <button class="attempt-card sell ${isSell ? "active" : ""}" type="button" data-intent-mode="sell">
-        <span>가상 매도 화면</span>
-        <strong>${isSell ? "시도 감지" : "대기"}</strong>
-        <small>전송 시도 차단 · API Key 없음</small>
+        <span>가상 매도</span>
+        <strong>${isSell ? "선택됨" : "선택하기"}</strong>
+        <small>API Key 없이 차단 상태 확인</small>
       </button>
-      <div class="attempt-terminal ${mode.tone}">
-        <span>${escapeHtml(selectedLabel)}</span>
-        <strong>${isAttempt ? "주문 전송 전 차단" : "선택 전 관찰"}</strong>
-        <dl>
-          <div><dt>마켓</dt><dd>${escapeHtml(state.market)}</dd></div>
-          <div><dt>표시용 현재가</dt><dd>${ticker ? `${formatKrw(ticker.trade_price)} KRW` : "확인 중"}</dd></div>
-          <div><dt>FOMO Score</dt><dd>${Number.isFinite(score) ? formatScore(score) : "--"}</dd></div>
-        </dl>
-      </div>
     </div>
     <form class="virtual-order-form" aria-label="화면 시연용 가상 주문 입력">
       <label>
@@ -440,18 +421,12 @@ function renderDemoStage() {
       <button class="virtual-submit ${mode.tone}" type="button" data-virtual-submit ${isAttempt ? "" : "disabled"}>
         가상 주문 전송 시도
       </button>
-      <p>${isAttempt ? "입력값은 저장되지 않고, 클릭 즉시 Decision Pause 전 차단 로그로만 남습니다." : "먼저 가상 매수 또는 가상 매도 화면을 선택합니다."}</p>
+      <p>${isAttempt ? "전송 시도는 화면 안에서만 기록되고 실제 주문 API는 호출하지 않습니다." : "먼저 가상 매수 또는 가상 매도를 선택합니다."}</p>
     </form>
     <div class="virtual-order-log ${virtualLog ? mode.tone : "neutral"}" aria-live="polite">
       <span>${virtualLog ? "차단 로그" : "대기 로그"}</span>
       <strong>${virtualLog ? escapeHtml(virtualLog.title) : "가상 주문 전송 시도 전"}</strong>
-      <p>${virtualLog ? escapeHtml(virtualLog.copy) : "수량 입력과 전송 버튼은 실제 거래가 아니라 Decision Pause 시연을 위한 화면 요소입니다."}</p>
-    </div>
-    <div class="attempt-route" aria-label="가상 시도 이후 흐름">
-      <div class="${isAttempt && state.demoStep >= 0 ? "active" : ""}"><span>1</span><strong>가상 시도</strong></div>
-      <div class="${isAttempt && state.demoStep >= 1 ? "active" : ""}"><span>2</span><strong>주문 차단</strong></div>
-      <div class="${isAttempt && state.demoStep >= 2 ? "active" : ""}"><span>3</span><strong>관찰값 확인</strong></div>
-      <div class="${isAttempt && state.demoStep >= 3 ? "active" : ""}"><span>4</span><strong>Decision Pause</strong></div>
+      <p>${virtualLog ? escapeHtml(virtualLog.copy) : "선택 후 전송 시도를 누르면 실제 주문 대신 Decision Pause가 열립니다."}</p>
     </div>
   `;
 
@@ -475,23 +450,6 @@ function renderDemoStage() {
         <p>${ticker ? formatSignedPercent(ticker.signed_change_rate) : "Upbit 공개 ticker"}</p>
       </div>
     </div>
-    <div class="observation-grid">
-      <div>
-        <span>과거 참고 사례</span>
-        <strong>${topMirror ? escapeHtml(topMirror.date) : "표본 확인 중"}</strong>
-        <p>${topMirror ? `${formatScore(Number(topMirror.score))} · ${escapeHtml(topMirror.grade)}` : `${mirrorCount}개 유사 구간`}</p>
-      </div>
-      <div>
-        <span>오차 범위</span>
-        <strong>${longest ? `±${formatScore(Number(longest.error_band))}` : "확인 중"}</strong>
-        <p>${longest ? escapeHtml(longest.trend_label) : "방향 단정 없음"}</p>
-      </div>
-      <div>
-        <span>자기 점검</span>
-        <strong>${pauseCount}/${PAUSE_CHECKS.length}</strong>
-        <p>정보와 감정 분리</p>
-      </div>
-    </div>
     <div class="observation-flow" aria-label="공개 데이터 관찰 흐름">
       ${observationFlow
         .map(
@@ -509,36 +467,26 @@ function renderDemoStage() {
   const ticketAction = ticketMode === "sell" ? "SELL INTENT" : ticketMode === "buy" ? "BUY INTENT" : "OBSERVE";
   const ticketCopy =
     ticketMode === "observe"
-      ? "가상 행동을 선택하거나 전환 버튼을 누르면 실제 주문 대신 점검 화면이 열립니다."
-      : "이 화면은 주문 입력 화면처럼 보이지만 실제 주문 전송과 API Key 입력은 없습니다. 수량은 시연용 입력값입니다.";
+      ? "가상 행동 선택 후 점검으로 이동합니다."
+      : "주문 API와 API Key 입력 없이 차단 상태를 보여줍니다.";
   $("intentTicket").className = `intent-ticket ${mode.tone}`;
   $("intentTicket").innerHTML = `
     <div class="ticket-head">
       <div>
-        <span>Virtual Trade Intent</span>
-        <strong>${ticketLabel}</strong>
+        <span>주문 경로</span>
+        <strong>실거래 차단</strong>
       </div>
-      <em>${ticketAction}</em>
-    </div>
-    <div class="ticket-tabs">
-      <button class="ticket-tab" type="button" data-intent-mode="buy">가상 매수</button>
-      <button class="ticket-tab" type="button" data-intent-mode="sell">가상 매도</button>
+      <em>${isAttempt ? ticketAction : "CLOSED"}</em>
     </div>
     <div class="ticket-fields">
-      <div><span>마켓</span><strong>${escapeHtml(state.market)}</strong></div>
-      <div><span>표시용 현재가</span><strong>${ticker ? `${formatKrw(ticker.trade_price)} KRW` : "확인 중"}</strong></div>
-      <div><span>FOMO Score</span><strong>${Number.isFinite(score) ? formatScore(score) : "--"}</strong></div>
-      <div><span>API Key</span><strong>요구하지 않음</strong></div>
+      <div><span>선택</span><strong>${escapeHtml(ticketLabel)}</strong></div>
+      <div><span>API Key</span><strong>없음</strong></div>
     </div>
     <p>${escapeHtml(ticketCopy)}</p>
     <button class="blocked-submit ${isAttempt ? mode.tone : "neutral"}" type="button" data-open-pause>
       점검 열기
     </button>
   `;
-  $("intentTicket").querySelectorAll("[data-intent-mode]").forEach((button) => {
-    button.classList.toggle("active", button.getAttribute("data-intent-mode") === ticketMode);
-  });
-
   document.querySelector(".pause-live-status")?.remove();
   $("quickPauseList").insertAdjacentHTML(
     "beforebegin",
@@ -555,15 +503,32 @@ function renderDemoStage() {
       </div>
     `,
   );
-  $("quickPauseList").innerHTML = PAUSE_CHECKS.map(
-    (item) => `
-      <button class="quick-pause-toggle" type="button" data-check-id="${escapeHtml(item.id)}" aria-pressed="${state.pauseChecks[item.id]}">
-        <span>${escapeHtml(item.title)}</span>
-        <p>${escapeHtml(item.shortCopy || item.copy)}</p>
-        <strong>${state.pauseChecks[item.id] ? "확인됨" : "확인 필요"}</strong>
+  $("quickPauseList").innerHTML = `
+    <div class="pause-slide-card">
+      <span>${pauseSlideIndex + 1} / ${PAUSE_CHECKS.length}</span>
+      <strong>${escapeHtml(activePause.title)}</strong>
+      <p>${escapeHtml(activePause.copy)}</p>
+      <button class="slide-check" type="button" data-check-id="${escapeHtml(activePause.id)}" aria-pressed="${state.pauseChecks[activePause.id]}">
+        ${state.pauseChecks[activePause.id] ? "확인됨" : "확인하기"}
       </button>
-    `,
-  ).join("");
+    </div>
+    <div class="pause-slide-controls" aria-label="Decision Pause 슬라이드 이동">
+      <button type="button" data-pause-nav="-1" ${pauseSlideIndex === 0 ? "disabled" : ""}>이전</button>
+      <div>
+        ${PAUSE_CHECKS.map(
+          (item, index) => `
+            <button
+              class="pause-dot ${index === pauseSlideIndex ? "active" : ""} ${state.pauseChecks[item.id] ? "checked" : ""}"
+              type="button"
+              data-pause-slide="${index}"
+              aria-label="${escapeHtml(item.title)}"
+            ></button>
+          `,
+        ).join("")}
+      </div>
+      <button type="button" data-pause-nav="1" ${pauseSlideIndex === PAUSE_CHECKS.length - 1 ? "disabled" : ""}>다음</button>
+    </div>
+  `;
 
   $("demoFlow").innerHTML = DEMO_FLOW.map(
     ([title, copy], index) => `
@@ -1155,10 +1120,30 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const pauseSlideButton = event.target.closest("[data-pause-slide]");
+  if (pauseSlideButton) {
+    state.pauseSlideIndex = Number(pauseSlideButton.getAttribute("data-pause-slide")) || 0;
+    renderDemoStage();
+    return;
+  }
+
+  const pauseNavButton = event.target.closest("[data-pause-nav]");
+  if (pauseNavButton) {
+    const delta = Number(pauseNavButton.getAttribute("data-pause-nav")) || 0;
+    state.pauseSlideIndex = Math.max(0, Math.min(PAUSE_CHECKS.length - 1, state.pauseSlideIndex + delta));
+    renderDemoStage();
+    return;
+  }
+
   const button = event.target.closest("[data-check-id]");
   if (button) {
     const id = button.getAttribute("data-check-id");
-    state.pauseChecks[id] = !state.pauseChecks[id];
+    const wasChecked = Boolean(state.pauseChecks[id]);
+    state.pauseChecks[id] = !wasChecked;
+    const checkedIndex = PAUSE_CHECKS.findIndex((item) => item.id === id);
+    if (!wasChecked && checkedIndex === state.pauseSlideIndex && checkedIndex < PAUSE_CHECKS.length - 1) {
+      state.pauseSlideIndex = checkedIndex + 1;
+    }
     if (state.overview) {
       renderReadiness();
       renderPauseChecklist();
