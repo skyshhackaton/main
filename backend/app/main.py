@@ -90,6 +90,44 @@ def get_decision_pause() -> dict:
     }
 
 
+@app.get("/api/mvp-overview")
+def get_mvp_overview(
+    market: str = DEFAULT_MARKET,
+    history_days: int = 200,
+    mirror_days: int = 200,
+    tolerance: float = 10.0,
+    max_periods: int = 10,
+) -> dict:
+    if history_days <= 0:
+        raise HTTPException(status_code=400, detail="history_days must be positive")
+
+    candles = _load_or_404(market)
+    try:
+        mirror = build_historical_mirror(
+            candles,
+            tolerance=tolerance,
+            days=mirror_days,
+            max_periods=max_periods,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "market": market,
+        "current": score_at(candles),
+        "history": {
+            "days": history_days,
+            "items": score_series(candles, history_days),
+        },
+        "historical_mirror": mirror,
+        "decision_pause": {
+            "items": DECISION_PAUSE_QUESTIONS,
+        },
+        "disclaimer": DISCLAIMER,
+        "history_disclaimer": HISTORY_DISCLAIMER,
+    }
+
+
 @app.get("/api/historical-mirror")
 def get_historical_mirror(
     market: str = DEFAULT_MARKET,

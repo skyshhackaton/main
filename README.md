@@ -173,6 +173,7 @@ GET http://localhost:8000/api/health
 GET http://localhost:8000/api/fomo-score?market=KRW-BTC
 GET http://localhost:8000/api/fomo-history?market=KRW-BTC
 GET http://localhost:8000/api/decision-pause
+GET http://localhost:8000/api/mvp-overview?market=KRW-BTC
 GET http://localhost:8000/api/historical-mirror?market=KRW-BTC
 ```
 
@@ -249,6 +250,35 @@ GET http://localhost:8000/api/historical-mirror?market=KRW-BTC
     }
   ],
   "disclaimer": "본 지수는 시장 상태 관찰 도구이며 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
+}
+```
+
+### GET /api/mvp-overview
+
+MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Decision Pause 질문을 한 번에 반환합니다. 발표 시연이나 프론트엔드 연결에서는 이 엔드포인트를 우선 사용할 수 있습니다.
+
+```json
+{
+  "market": "KRW-BTC",
+  "current": {
+    "score": 73.2,
+    "grade": "탐욕",
+    "description": "매수 심리와 FOMO 조짐이 우세한 상태"
+  },
+  "history": {
+    "days": 200,
+    "items": []
+  },
+  "historical_mirror": {
+    "current_score": 73.2,
+    "similar_periods": [],
+    "stats": {"sample_count": 0}
+  },
+  "decision_pause": {
+    "items": []
+  },
+  "disclaimer": "본 지수는 시장 상태 관찰 도구이며 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다.",
+  "history_disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
 }
 ```
 
