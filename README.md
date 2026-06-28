@@ -175,6 +175,8 @@ GET http://localhost:8000/api/fomo-history?market=KRW-BTC
 GET http://localhost:8000/api/decision-pause
 GET http://localhost:8000/api/mvp-overview?market=KRW-BTC
 GET http://localhost:8000/api/historical-mirror?market=KRW-BTC
+GET http://localhost:8000/api/knn-mirror?market=KRW-BTC
+GET http://localhost:8000/api/score-forecast?market=KRW-BTC
 ```
 
 ### Frontend
@@ -271,9 +273,13 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
   },
   "historical_mirror": {
     "current_score": 73.2,
+    "method": "score_tolerance",
+    "method_label": "조건 매칭",
+    "comparison_basis": ["fomo_score"],
     "similar_periods": [],
     "stats": {"sample_count": 0}
   },
+  "knn_mirror": null,
   "decision_pause": {
     "items": []
   },
@@ -281,6 +287,8 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
   "history_disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
 }
 ```
+
+`include_knn=true`를 붙이면 KNN Mirror 결과도 함께 받을 수 있습니다.
 
 ### GET /api/historical-mirror
 
@@ -291,6 +299,9 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
   "market": "KRW-BTC",
   "current_score": 73.2,
   "current_grade": "탐욕",
+  "method": "score_tolerance",
+  "method_label": "조건 매칭",
+  "comparison_basis": ["fomo_score"],
   "similar_periods": [
     {
       "date": "2025-11-09T00:00:00",
@@ -308,6 +319,57 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
     "positive_rate_7d": 0.42
   },
   "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+}
+```
+
+### GET /api/knn-mirror
+
+Historical Mirror와 같은 화면에서 비교 가능한 KNN 기반 과거 참고 사례를 반환합니다. 기본 MVP 통합 응답에는 포함되지 않으며, `/api/mvp-overview?include_knn=true`일 때 선택적으로 함께 내려갑니다.
+
+```json
+{
+  "market": "KRW-BTC",
+  "current_score": 73.2,
+  "current_grade": "탐욕",
+  "method": "feature_knn",
+  "method_label": "피처 유사도",
+  "comparison_basis": ["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
+  "n_neighbors": 5,
+  "features": ["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
+  "similar_periods": [],
+  "stats": {"sample_count": 5},
+  "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+}
+```
+
+### GET /api/score-forecast
+
+FOMO Score 자체의 단기 참고 흐름을 반환합니다. 가격, 수익률, 매수/매도 행동을 예측하지 않으며, 백테스트 MAE를 오차 범위로 함께 보여주어 변화폭이 방향으로 해석 가능한 수준인지 확인할 수 있게 합니다.
+
+```json
+{
+  "market": "KRW-BTC",
+  "current_score": 42.33,
+  "current_grade": "중립",
+  "method_label": "FOMO Score 흐름 참고",
+  "comparison_basis": ["fomo_score_lags", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
+  "forecast": [
+    {
+      "horizon_days": 7,
+      "predicted_score": 38.52,
+      "grade": "공포",
+      "score_delta": -3.81,
+      "error_band": 5.096,
+      "trend_direction": "within_error_band",
+      "trend_label": "오차 범위 내",
+      "confidence_level": "medium",
+      "confidence_label": "보통",
+      "interpretation": "현재 점수와의 차이가 백테스트 오차 범위 안에 있어 방향으로 단정하지 않습니다. 시장 상태 관찰과 자기 점검을 위한 참고값입니다."
+    }
+  ],
+  "summary": "현재 FOMO Score 42.33점 기준, 7일 참고값은 백테스트 오차 범위 안에 있습니다. 방향을 단정하기보다 지금 판단의 근거를 점검하는 데 사용하세요.",
+  "caution": "FOMO Score 참고 흐름은 시장 상태 관찰값이며 가격/수익률 예측이나 투자 추천이 아닙니다.",
+  "disclaimer": "FOMO Score 흐름 참고값은 시장 심리 상태 관찰용이며 가격·수익률 예측이 아닙니다. 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
 }
 ```
 
@@ -379,6 +441,8 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
 - [제품 요약](docs/product-brief.md)
 - [FOMO Score 산식](docs/fomo-score-spec.md)
 - [API 설계](docs/api-design.md)
+- [데이터 핸드오프](docs/data-handoff.md)
+- [KNN Mirror 연동 계약](docs/knn-integration-contract.md)
 - [규정/보안 체크](docs/compliance.md)
 - [팀 협업 방식](docs/team-workflow.md)
 

@@ -6,13 +6,18 @@ used solely as evaluation labels, never as score inputs.
 
 from __future__ import annotations
 
+import csv
 from dataclasses import asdict
 from itertools import product
+from pathlib import Path
 from typing import Iterable
 
 from . import fomo_score
 from .fomo_score import FomoWeights, WEIGHTS
 
+
+DEFAULT_SNAPSHOT_PATH = Path(__file__).resolve().parents[2] / "data" / "upbit_candles_snapshot.csv"
+DEFAULT_MARKETS = ("KRW-BTC", "KRW-ETH", "KRW-XRP")
 
 BUCKETS = (
     (0.0, 20.0, "0-20"),
@@ -21,6 +26,55 @@ BUCKETS = (
     (60.0, 80.0, "60-80"),
     (80.0, 100.0, "80-100"),
 )
+
+
+def load_snapshot_candles(
+    market: str,
+    csv_path: Path = DEFAULT_SNAPSHOT_PATH,
+) -> list[dict]:
+    """Load one market from the tracked official snapshot in oldest-first order."""
+    candles = []
+    with csv_path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        required = {"market", "date_utc", "open", "high", "low", "close", "volume"}
+        if reader.fieldnames is None or not required.issubset(reader.fieldnames):
+            missing = sorted(required - set(reader.fieldnames or ()))
+            raise ValueError(f"snapshot is missing required columns: {missing}")
+        for row in reader:
+            if row["market"] != market:
+                continue
+            candles.append(
+                {
+                    "date_utc": row["date_utc"],
+                    "open": float(row["open"]),
+                    "high": float(row["high"]),
+                    "low": float(row["low"]),
+                    "close": float(row["close"]),
+                    "volume": float(row["volume"]),
+                }
+            )
+    return sorted(candles, key=lambda candle: candle["date_utc"])
+
+
+def run_snapshot_backtests(
+    markets: Iterable[str] = DEFAULT_MARKETS,
+    csv_path: Path = DEFAULT_SNAPSHOT_PATH,
+    days: int = 200,
+    horizon: int = 7,
+) -> dict[str, dict]:
+    """Run baseline and sensitivity backtests from the official CSV snapshot."""
+    results = {}
+    for market in markets:
+        candles = load_snapshot_candles(market, csv_path)
+        if not candles:
+            raise ValueError(f"snapshot has no candles for market: {market}")
+        results[market] = {
+            "source": str(csv_path),
+            "candle_count": len(candles),
+            "baseline": evaluate_weights(candles, days=days, horizon=horizon),
+            "sensitivity": sensitivity_analysis(candles, days=days, horizon=horizon),
+        }
+    return results
 
 
 def _bucket_label(score: float) -> str:
@@ -38,17 +92,37 @@ def _mean(values: list[float]) -> float | None:
 def _score_series_with_weights(
     candles: list[dict], days: int, weights: FomoWeights
 ) -> list[dict]:
-    """Run the existing scorer with temporary weights, then always restore it.
-
-    This keeps sensitivity-analysis concerns inside this offline backtest module
-    without changing the production fomo_score interface.
-    """
-    original = fomo_score.WEIGHTS
-    try:
-        fomo_score.WEIGHTS = weights
-        return fomo_score.score_series(candles, days=days)
-    finally:
-        fomo_score.WEIGHTS = original
+    """Build a score series without mutating the production global weights."""
+    weight_values = asdict(weights)
+    indicator_weights = {
+        "X1": weight_values["price_momentum"],
+        "X2": weight_values["price_strength"],
+        "X3": weight_values["market_breadth"],
+        "X4": weight_values["clv_pressure"],
+        "X5": weight_values["rsi"],
+        "X6": weight_values["volatility_inverse"],
+        "X7": weight_values["volume_momentum"],
+        "X8": weight_values["win_streak"],
+    }
+    start = max(fomo_score.MIN_WINDOW, len(candles) - days)
+    series = []
+    for index in range(start, len(candles)):
+        indicators = fomo_score._calc_indicators(candles[: index + 1])
+        score = round(
+            sum(indicators[name] * indicator_weights[name] for name in indicator_weights),
+            2,
+        )
+        grade, description = fomo_score.classify_grade(score)
+        series.append(
+            {
+                "date": candles[index].get("date_utc"),
+                "close": candles[index]["close"],
+                "score": score,
+                "grade": grade,
+                "description": description,
+            }
+        )
+    return series
 
 
 def evaluate_weights(
@@ -105,6 +179,11 @@ def evaluate_weights(
         "horizon": horizon,
         "weights": asdict(weights),
         "series_count": len(series),
+        "score_summary": {
+            "mean": _mean([float(item["score"]) for item in series]),
+            "min": min((float(item["score"]) for item in series), default=None),
+            "max": max((float(item["score"]) for item in series), default=None),
+        },
         "evaluated_count": sum(row["sample_count"] for row in buckets),
         "buckets": buckets,
         "high_greed_report": {
@@ -149,6 +228,8 @@ def sensitivity_analysis(
                 "x7": x7,
                 "x8": x8,
                 "weight_sum": sum(asdict(weights).values()),
+                "score_summary": result["score_summary"],
+                "buckets": result["buckets"],
                 "high_greed_sample_count": report["sample_count"],
                 "high_greed_mean_7d_return": report["mean_7d_return"],
                 "high_greed_positive_rate": report["positive_rate"],
@@ -159,19 +240,32 @@ def sensitivity_analysis(
 
 
 def format_sensitivity_table(rows: list[dict]) -> str:
-    """Render sensitivity results as a presentation-ready Markdown table."""
+    """Render score distribution and forward outcomes for every weight pair.
+
+    Each bucket cell is ``sample count / mean forward return / positive rate``.
+    This keeps the sensitivity comparison focused on the observed outcome, not
+    merely on how changing weights moves scores between buckets.
+    """
+
+    def format_bucket(item: dict) -> str:
+        count = item["sample_count"]
+        mean_return = item["mean_7d_return"]
+        positive_rate = item["positive_rate"]
+        if mean_return is None or positive_rate is None:
+            return f"{count} / N/A / N/A"
+        return f"{count} / {mean_return:+.2%} / {positive_rate:.2%}"
+
     lines = [
-        "| X7 | X8 | 80+ samples | mean 7d return | positive rate | finding |",
-        "|---:|---:|---:|---:|---:|---|",
+        "| X7 | X8 | score mean | score range | 0-20 (n/ret/up) | 20-40 (n/ret/up) | 40-60 (n/ret/up) | 60-80 (n/ret/up) | 80-100 (n/ret/up) |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
-        mean_return = row["high_greed_mean_7d_return"]
-        positive_rate = row["high_greed_positive_rate"]
-        mean_text = "N/A" if mean_return is None else f"{mean_return:.2%}"
-        rate_text = "N/A" if positive_rate is None else f"{positive_rate:.2%}"
+        summary = row["score_summary"]
+        buckets = {item["bucket"]: format_bucket(item) for item in row["buckets"]}
         lines.append(
             f"| {row['x7']:.2f} | {row['x8']:.2f} | "
-            f"{row['high_greed_sample_count']} | {mean_text} | {rate_text} | "
-            f"{row['finding']} |"
+            f"{summary['mean']:.2f} | {summary['min']:.2f}~{summary['max']:.2f} | "
+            f"{buckets['0-20']} | {buckets['20-40']} | {buckets['40-60']} | "
+            f"{buckets['60-80']} | {buckets['80-100']} |"
         )
     return "\n".join(lines)

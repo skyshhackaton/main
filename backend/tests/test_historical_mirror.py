@@ -31,6 +31,9 @@ def test_historical_mirror_returns_periods_and_stats():
 
     assert result["current_score"] == 50.0
     assert result["current_grade"] == "중립"
+    assert result["method"] == "score_tolerance"
+    assert result["method_label"] == "조건 매칭"
+    assert result["comparison_basis"] == ["fomo_score"]
     assert len(result["similar_periods"]) == 5
     assert result["stats"]["sample_count"] == 59
     assert result["stats"]["sample_count_3d"] == 57
@@ -76,8 +79,12 @@ def test_invalid_arguments_are_rejected():
     with pytest.raises(ValueError):
         build_historical_mirror(candles, tolerance=-1)
     with pytest.raises(ValueError):
+        build_historical_mirror(candles, tolerance=float("nan"))
+    with pytest.raises(ValueError):
         build_historical_mirror(candles, days=0)
     with pytest.raises(ValueError):
         build_historical_mirror(candles, max_periods=0)
     with pytest.raises(ValueError):
         build_historical_mirror(candles, current_score=101.0)
+    with pytest.raises(ValueError):
+        build_historical_mirror(candles, current_score=float("nan"))

@@ -65,6 +65,11 @@ def _build_export_metadata(
     return crawled_at, run_id or default_run_id
 
 
+def _run_id_from_crawled_at(crawled_at: str) -> str:
+    dt = datetime.fromisoformat(crawled_at.replace("Z", "+00:00"))
+    return dt.astimezone(timezone.utc).strftime("%Y%m%d_%H%M")
+
+
 def export_candles_csv(
     out_path: Path,
     markets: list[str] | None = None,
