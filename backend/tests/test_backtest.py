@@ -3,17 +3,20 @@ from dataclasses import asdict
 import pytest
 
 from app.backtest import (
+    DEFAULT_BACKTEST_DAYS,
     DEFAULT_SNAPSHOT_PATH,
     evaluate_weights,
     format_sensitivity_table,
+    indicator_ablation_analysis,
     load_snapshot_candles,
     run_snapshot_backtests,
     sensitivity_analysis,
     weights_for_sensitivity,
+    weights_without_indicator,
 )
 
 
-def _candles(count: int = 565) -> list[dict]:
+def _candles(count: int = 2200) -> list[dict]:
     result = []
     for i in range(count):
         close = 100.0 + i * 0.05 + (i % 12) * 0.4
@@ -31,10 +34,11 @@ def _candles(count: int = 565) -> list[dict]:
 
 
 def test_evaluate_weights_excludes_last_horizon_observations():
-    result = evaluate_weights(_candles(), days=200, horizon=7)
-    assert result["series_count"] == 200
-    assert result["evaluated_count"] == 193
-    assert sum(row["sample_count"] for row in result["buckets"]) == 193
+    result = evaluate_weights(_candles(), horizon=7)
+    assert DEFAULT_BACKTEST_DAYS == 1835
+    assert result["series_count"] == 1835
+    assert result["evaluated_count"] == 1828
+    assert sum(row["sample_count"] for row in result["buckets"]) == 1828
 
 
 def test_bucket_statistics_have_valid_rates():
@@ -87,7 +91,31 @@ def test_sensitivity_analysis_returns_nine_combinations():
     assert len(format_sensitivity_table(rows).splitlines()) == 11
     assert all(len(row["buckets"]) == 5 for row in rows)
     assert all(row["score_summary"]["min"] <= row["score_summary"]["mean"] <= row["score_summary"]["max"] for row in rows)
-    assert all(sum(bucket["sample_count"] for bucket in row["buckets"]) == 193 for row in rows)
+    assert all(sum(bucket["sample_count"] for bucket in row["buckets"]) == 1828 for row in rows)
+
+
+@pytest.mark.parametrize("indicator", ["X3", "X6"])
+def test_ablation_weights_remove_indicator_and_sum_to_one(indicator):
+    weights = weights_without_indicator(indicator)
+    values = asdict(weights)
+    field = {"X3": "market_breadth", "X6": "volatility_inverse"}[indicator]
+    assert values[field] == 0.0
+    assert sum(values.values()) == pytest.approx(1.0)
+
+
+def test_indicator_ablation_reports_score_and_bucket_changes():
+    rows = indicator_ablation_analysis(_candles(), indicators=("X3", "X6"))
+    assert [row["indicator"] for row in rows] == ["X3", "X6"]
+    assert all(row["weight_sum"] == pytest.approx(1.0) for row in rows)
+    assert all(row["mean_abs_score_change"] >= 0 for row in rows)
+    assert all(row["max_abs_score_change"] >= row["mean_abs_score_change"] for row in rows)
+    assert all(0 <= row["bucket_change_count"] <= DEFAULT_BACKTEST_DAYS for row in rows)
+    assert all(len(row["buckets"]) == 5 for row in rows)
+
+
+def test_indicator_ablation_rejects_unknown_indicator():
+    with pytest.raises(ValueError, match="indicator must be one of"):
+        weights_without_indicator("X9")
 
 
 def test_sensitivity_table_includes_forward_outcomes():

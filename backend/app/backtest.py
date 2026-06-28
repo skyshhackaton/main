@@ -18,6 +18,7 @@ from .fomo_score import FomoWeights, WEIGHTS
 
 DEFAULT_SNAPSHOT_PATH = Path(__file__).resolve().parents[2] / "data" / "upbit_candles_snapshot.csv"
 DEFAULT_MARKETS = ("KRW-BTC", "KRW-ETH", "KRW-XRP")
+DEFAULT_BACKTEST_DAYS = 1835
 RESCALED_WEIGHT_FIELDS = (
     "price_momentum",
     "price_strength",
@@ -26,6 +27,17 @@ RESCALED_WEIGHT_FIELDS = (
     "rsi",
     "volatility_inverse",
 )
+
+INDICATOR_WEIGHT_FIELDS = {
+    "X1": "price_momentum",
+    "X2": "price_strength",
+    "X3": "market_breadth",
+    "X4": "clv_pressure",
+    "X5": "rsi",
+    "X6": "volatility_inverse",
+    "X7": "volume_momentum",
+    "X8": "win_streak",
+}
 
 BUCKETS = (
     (0.0, 20.0, "0-20"),
@@ -67,7 +79,7 @@ def load_snapshot_candles(
 def run_snapshot_backtests(
     markets: Iterable[str] = DEFAULT_MARKETS,
     csv_path: Path = DEFAULT_SNAPSHOT_PATH,
-    days: int = 200,
+    days: int = DEFAULT_BACKTEST_DAYS,
     horizon: int = 7,
 ) -> dict[str, dict]:
     """Run baseline and sensitivity backtests from the official CSV snapshot."""
@@ -81,6 +93,9 @@ def run_snapshot_backtests(
             "candle_count": len(candles),
             "baseline": evaluate_weights(candles, days=days, horizon=horizon),
             "sensitivity": sensitivity_analysis(candles, days=days, horizon=horizon),
+            "indicator_ablation": indicator_ablation_analysis(
+                candles, indicators=("X3", "X6"), days=days, horizon=horizon
+            ),
         }
     return results
 
@@ -143,7 +158,7 @@ def _score_series_with_weights(
 def evaluate_weights(
     candles: list[dict],
     weights: FomoWeights = WEIGHTS,
-    days: int = 200,
+    days: int = DEFAULT_BACKTEST_DAYS,
     horizon: int = 7,
 ) -> dict:
     """Return score-bucket statistics for a forward-return evaluation."""
@@ -229,10 +244,82 @@ def weights_for_sensitivity(x7: float, x8: float) -> FomoWeights:
     return FomoWeights(**values)
 
 
+def weights_without_indicator(indicator: str) -> FomoWeights:
+    """Remove one indicator and proportionally redistribute its weight.
+
+    Relative weights among the remaining indicators stay unchanged and the
+    resulting weights sum to one. This supports an interpretable ablation
+    rather than silently lowering the total score scale.
+    """
+    if indicator not in INDICATOR_WEIGHT_FIELDS:
+        raise ValueError(f"indicator must be one of {sorted(INDICATOR_WEIGHT_FIELDS)}")
+
+    removed_field = INDICATOR_WEIGHT_FIELDS[indicator]
+    values = asdict(WEIGHTS)
+    removed_weight = values[removed_field]
+    scale = 1.0 / (1.0 - removed_weight)
+    for field in values:
+        values[field] = 0.0 if field == removed_field else values[field] * scale
+    return FomoWeights(**values)
+
+
+def indicator_ablation_analysis(
+    candles: list[dict],
+    indicators: Iterable[str] = ("X3", "X6"),
+    days: int = DEFAULT_BACKTEST_DAYS,
+    horizon: int = 7,
+) -> list[dict]:
+    """Measure score/distribution changes after removing selected indicators."""
+    baseline_series = _score_series_with_weights(candles, days, WEIGHTS)
+    baseline_result = evaluate_weights(candles, WEIGHTS, days, horizon)
+    baseline_buckets = {
+        row["bucket"]: row for row in baseline_result["buckets"]
+    }
+
+    rows = []
+    for indicator in indicators:
+        weights = weights_without_indicator(indicator)
+        ablated_series = _score_series_with_weights(candles, days, weights)
+        result = evaluate_weights(candles, weights, days, horizon)
+        deltas = [
+            float(ablated["score"]) - float(base["score"])
+            for base, ablated in zip(baseline_series, ablated_series)
+        ]
+        bucket_changes = sum(
+            _bucket_label(float(base["score"]))
+            != _bucket_label(float(ablated["score"]))
+            for base, ablated in zip(baseline_series, ablated_series)
+        )
+        rows.append(
+            {
+                "indicator": indicator,
+                "removed_weight": asdict(WEIGHTS)[INDICATOR_WEIGHT_FIELDS[indicator]],
+                "weight_sum": sum(asdict(weights).values()),
+                "mean_abs_score_change": _mean([abs(delta) for delta in deltas]),
+                "max_abs_score_change": max((abs(delta) for delta in deltas), default=0.0),
+                "bucket_change_count": bucket_changes,
+                "score_summary": result["score_summary"],
+                "buckets": result["buckets"],
+                "bucket_mean_return_change": {
+                    bucket["bucket"]: (
+                        None
+                        if bucket["mean_forward_return"] is None
+                        or baseline_buckets[bucket["bucket"]]["mean_forward_return"] is None
+                        else bucket["mean_forward_return"]
+                        - baseline_buckets[bucket["bucket"]]["mean_forward_return"]
+                    )
+                    for bucket in result["buckets"]
+                },
+                "high_greed_report": result["high_greed_report"],
+            }
+        )
+    return rows
+
+
 def sensitivity_analysis(
     candles: list[dict],
     values: Iterable[float] = (0.15, 0.20, 0.25),
-    days: int = 200,
+    days: int = DEFAULT_BACKTEST_DAYS,
     horizon: int = 7,
 ) -> list[dict]:
     """Compare all requested X7/X8 combinations using identical candles."""
