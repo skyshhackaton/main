@@ -6,6 +6,11 @@ from app.fomo_score import score_at, score_series
 from app.forecast_score import build_score_forecast
 from app.historical_mirror import build_historical_mirror
 from app.knn_mirror import build_knn_mirror
+from app.knn_pattern import (
+    DISCLAIMER as PATTERN_DISCLAIMER,
+    METRICS as PATTERN_METRICS,
+    build_fomo_pattern_forecast,
+)
 from app.upbit_client import DEFAULT_MARKET, load_candles
 
 app = FastAPI(
@@ -239,4 +244,38 @@ def get_knn_mirror(
         "market": market,
         **mirror,
         "disclaimer": HISTORY_DISCLAIMER,
+    }
+
+
+@app.get("/api/knn-pattern")
+def get_knn_pattern(
+    market: str = DEFAULT_MARKET,
+    window: int = 10,
+    horizon: int = 30,
+    k: int = 10,
+    metric: str = "raw",
+) -> dict:
+    """현재 FOMO 패턴과 닮은 과거 k개의 이후 흐름을 후보 시나리오로 반환.
+
+    기본값은 holdout 검증에서 가장 일반화가 좋았던 설정(W=10, H=30, k=10, raw).
+    """
+    _require_positive_int("window", window)
+    _require_positive_int("horizon", horizon)
+    _require_positive_int("k", k)
+    if metric not in PATTERN_METRICS:
+        raise HTTPException(
+            status_code=400, detail=f"metric must be one of {list(PATTERN_METRICS)}"
+        )
+    candles = _load_or_404(market)
+    try:
+        forecast = build_fomo_pattern_forecast(
+            candles, window=window, horizon=horizon, k=k, metric=metric
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "market": market,
+        **forecast,
+        "disclaimer": PATTERN_DISCLAIMER,
     }
