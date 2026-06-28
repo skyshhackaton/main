@@ -35,20 +35,20 @@ const INTENT_MODES = {
   },
   buy: {
     badge: "가상 매수 시도 차단",
-    title: "실제 주문 대신 Decision Pause가 열렸습니다.",
-    copy: "가격 움직임에 반응한 판단인지, 확인한 정보에 근거한 판단인지 먼저 분리합니다.",
+    title: "가상 매수 시도를 주문 전송 전에 멈췄습니다.",
+    copy: "이 장면은 실제 주문이 아니라, 판단 전 점검으로 넘어가기 전의 시도 화면입니다.",
     terminalLabel: "BUY INTENT",
-    terminalAction: "ORDER BLOCKED",
-    terminalCopy: "주문 전송 없이 근거 확인 화면으로 전환합니다.",
+    terminalAction: "ORDER PAUSED",
+    terminalCopy: "주문 전송 없이 근거 확인 화면으로 흐름을 바꿉니다.",
     tone: "warn",
   },
   sell: {
     badge: "가상 매도 시도 차단",
-    title: "실제 주문 대신 근거 점검으로 전환했습니다.",
-    copy: "불안이나 급한 반응인지, 미리 정한 관찰 기준인지 확인합니다.",
+    title: "가상 매도 시도를 주문 전송 전에 멈췄습니다.",
+    copy: "불안이나 급한 반응을 실제 주문으로 연결하지 않고, 근거 점검으로 넘기기 전 화면을 보여줍니다.",
     terminalLabel: "SELL INTENT",
-    terminalAction: "ORDER BLOCKED",
-    terminalCopy: "급한 반응을 자기 점검 질문으로 바꿉니다.",
+    terminalAction: "ORDER PAUSED",
+    terminalCopy: "급한 반응을 자기 점검 질문으로 바꾸기 전에 멈춥니다.",
     tone: "alert",
   },
 };
@@ -99,7 +99,7 @@ const DEMO_SCRIPT = [
   {
     delay: 72000,
     mode: "sell",
-    step: 1,
+    step: 0,
     title: "6. 가상 매도 시도도 같은 원칙입니다",
     copy: "불안한 반응도 주문으로 연결하지 않고 근거 점검으로 전환합니다.",
   },
@@ -280,7 +280,7 @@ function clearDemoTimers() {
   updateDemoProgress(0);
 }
 
-function setIntentMode(mode, step = 3) {
+function setIntentMode(mode, step = 0) {
   state.intentMode = mode;
   state.demoStep = step;
   renderDemoStage();
@@ -297,6 +297,15 @@ function renderDemoStage() {
   const longest = forecastItems[forecastItems.length - 1];
   const ticker = tickerForMarket(state.market);
   const pauseCount = checkedPauseCount();
+  const ticketMode = state.intentMode === "sell" ? "sell" : state.intentMode === "buy" ? "buy" : "observe";
+  const isBuy = ticketMode === "buy";
+  const isSell = ticketMode === "sell";
+  const isAttempt = isBuy || isSell;
+  const selectedAction = isBuy ? "BUY INTENT" : isSell ? "SELL INTENT" : "INTENT READY";
+  const selectedLabel = isBuy ? "가상 매수 시도" : isSell ? "가상 매도 시도" : "가상 행동 대기";
+  const selectedCopy = isAttempt
+    ? "아래 장면은 사용자가 행동 버튼을 누른 직후입니다. 실거래 입력창으로 보내지 않고 Decision Pause 전 단계에서 멈춥니다."
+    : "가상 매수 또는 가상 매도 버튼을 누르면, 이 영역이 실제 사용 장면처럼 바뀝니다.";
 
   $("firewallBadge").textContent = mode.badge;
   $("firewallBadge").className = mode.tone;
@@ -319,6 +328,45 @@ function renderDemoStage() {
     <p>${escapeHtml(activeScript.copy)}</p>
   `;
   updateDemoProgress(state.demoStartedAt ? Date.now() - state.demoStartedAt : 0);
+
+  $("attemptScene").className = `attempt-scene ${mode.tone}`;
+  $("attemptScene").innerHTML = `
+    <div class="attempt-head">
+      <div>
+        <span>STEP 1 · VIRTUAL INTENT SCREEN</span>
+        <strong>Decision Pause 전 가상 매수·매도 시도 장면</strong>
+      </div>
+      <em>${escapeHtml(selectedAction)}</em>
+    </div>
+    <p class="attempt-copy">${escapeHtml(selectedCopy)}</p>
+    <div class="attempt-body">
+      <button class="attempt-card buy ${isBuy ? "active" : ""}" type="button" data-intent-mode="buy">
+        <span>가상 매수 화면</span>
+        <strong>${isBuy ? "시도 감지" : "대기"}</strong>
+        <small>수량 입력 없음 · 주문 전송 없음</small>
+      </button>
+      <button class="attempt-card sell ${isSell ? "active" : ""}" type="button" data-intent-mode="sell">
+        <span>가상 매도 화면</span>
+        <strong>${isSell ? "시도 감지" : "대기"}</strong>
+        <small>API Key 없음 · 실거래 연결 없음</small>
+      </button>
+      <div class="attempt-terminal ${mode.tone}">
+        <span>${escapeHtml(selectedLabel)}</span>
+        <strong>${isAttempt ? "주문 전송 전 차단" : "선택 전 관찰"}</strong>
+        <dl>
+          <div><dt>마켓</dt><dd>${escapeHtml(state.market)}</dd></div>
+          <div><dt>표시용 현재가</dt><dd>${ticker ? `${formatKrw(ticker.trade_price)} KRW` : "확인 중"}</dd></div>
+          <div><dt>FOMO Score</dt><dd>${Number.isFinite(score) ? formatScore(score) : "--"}</dd></div>
+        </dl>
+      </div>
+    </div>
+    <div class="attempt-route" aria-label="가상 시도 이후 흐름">
+      <div class="${isAttempt && state.demoStep >= 0 ? "active" : ""}"><span>1</span><strong>가상 시도</strong></div>
+      <div class="${isAttempt && state.demoStep >= 1 ? "active" : ""}"><span>2</span><strong>주문 차단</strong></div>
+      <div class="${isAttempt && state.demoStep >= 2 ? "active" : ""}"><span>3</span><strong>관찰값 확인</strong></div>
+      <div class="${isAttempt && state.demoStep >= 3 ? "active" : ""}"><span>4</span><strong>Decision Pause</strong></div>
+    </div>
+  `;
 
   $("observationConsole").innerHTML = `
     <div class="observation-head">
@@ -359,7 +407,6 @@ function renderDemoStage() {
     </div>
   `;
 
-  const ticketMode = state.intentMode === "sell" ? "sell" : state.intentMode === "buy" ? "buy" : "observe";
   const ticketLabel = ticketMode === "sell" ? "가상 매도 티켓" : ticketMode === "buy" ? "가상 매수 티켓" : "가상 행동 대기";
   const ticketAction = ticketMode === "sell" ? "SELL INTENT" : ticketMode === "buy" ? "BUY INTENT" : "OBSERVE";
   const ticketCopy =
@@ -961,8 +1008,8 @@ document.addEventListener("click", (event) => {
   if (intentButton) {
     clearDemoTimers();
     const mode = intentButton.getAttribute("data-intent-mode");
-    state.demoScriptIndex = mode === "buy" ? 2 : mode === "sell" ? 5 : 0;
-    setIntentMode(mode, mode === "observe" ? 0 : 3);
+    state.demoScriptIndex = mode === "buy" ? 1 : mode === "sell" ? 5 : 0;
+    setIntentMode(mode, 0);
     return;
   }
 
