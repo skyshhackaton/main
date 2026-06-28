@@ -1,45 +1,160 @@
-﻿# FOMO Break
+﻿# FOMO Break – 2026 SKYSH Hackathon MVP
 
 > 당신이 지금 사려는 이유는 정말 정보 때문인가, 아니면 감정 때문인가?
 
-FOMO Break는 2026 SKYSH Hackathon을 위한 업비트 공개 데이터 기반 시장 심리 관찰 도구입니다. 초보 투자자가 숫자로만 보이는 시장 분위기를 쉽게 이해하고, 감정적인 추격 매수나 패닉셀을 하기 전에 한 번 멈춰 생각할 수 있도록 돕습니다.
+**FOMO Break**는 업비트 공개 데이터를 기반으로 시장의 공포·탐욕 상태를 해석하고, 초보 투자자가 감정적인 추격 매수나 패닉셀을 하기 전에 한 번 멈춰 생각하도록 돕는 **투자 심리 관찰 도구**입니다.
+
+이 저장소는 [2026 SKYSH Hackathon](https://skysh-official.github.io/2026-web/#tracks) 수상을 목표로 하는 MVP 개발 레포지토리입니다. 1차 개발 밋업에서는 아이디어와 프로토타입의 선명함을, 2차 최종 발표에서는 프로덕트 완성도와 BM 타당성을 보여주는 것을 목표로 합니다.
 
 본 프로젝트는 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다. 모든 점수와 문구는 시장 상태 관찰 및 자기 점검을 위한 참고 정보입니다.
 
+---
+
+## 프로젝트 포지션
+
+2026 SKYSH Hackathon의 핵심 주제는 업비트 생태계 위에서 다음 문제를 기술로 다루는 것입니다.
+
+- 기술로 공포와 탐욕을 다루기
+- 정보·시간·경험의 비대칭을 넘어가기
+- 개인정보, 보안, 관련 법령, 사용자 보호를 고려한 현실적인 서비스 설계
+- 사용자 API Key 또는 Secret Key를 서버에 직접 저장하지 않는 구조
+
+FOMO Break는 이 중 **공포와 탐욕** 및 **초보 투자자의 경험 비대칭**에 집중합니다.
+
+초보자는 시장이 급등하거나 주변 추천이 많아질 때 “정보 기반 판단”과 “감정 기반 판단”을 구분하기 어렵습니다. FOMO Break는 시장 데이터를 점수와 질문으로 번역해 사용자가 행동하기 전에 판단 근거를 점검하게 합니다.
+
+---
+
 ## 핵심 기능
 
-1. Emotion Score
-   - 업비트 공개 일봉 캔들 데이터로 FOMO Score를 계산합니다.
-   - 가격 모멘텀, 가격 강도, 거래량 방향성, CLV, RSI, 변동성, 거래량 모멘텀, 연속 상승일을 0~100 점수로 정규화합니다.
+### 1. Emotion Score
 
-2. Historical Mirror
-   - 현재와 유사한 과거 시장 구간을 보여줍니다.
-   - 결과는 예측이 아니라 과거 참고 사례로만 설명합니다.
+업비트 공개 일봉 캔들 데이터를 기반으로 자체 FOMO Score를 계산합니다.
 
-3. Decision Pause
-   - 사용자의 행동을 지시하지 않고, 결정을 잠시 멈추게 하는 질문을 제공합니다.
-   - 예: "지금 판단의 근거가 정보인가요, 감정인가요?"
+- 가격 모멘텀
+- 가격 강도
+- 상승봉 거래량 비율
+- CLV 기반 매수 압력
+- RSI
+- 변동성 역수
+- 거래량 모멘텀
+- 연속 상승일
 
-## 대회 적합성
+모든 지표는 0~100으로 정규화하고, 초보 투자자가 크게 반응하는 **거래량 급증**과 **연속 상승**에 더 높은 가중치를 둡니다.
 
-2026 SKYSH 주제는 업비트 생태계 위에서 공포와 탐욕, 정보/시간/경험의 비대칭을 기술로 다루는 프로덕트를 제안하는 것입니다. FOMO Break는 업비트 공개 API만 사용하고, 서버에 사용자 API Key 또는 Secret Key를 저장하지 않는 구조를 지향합니다.
+### 2. Historical Mirror
 
-## 저장소 구조
+현재 시장 상태와 유사한 과거 구간을 보여줍니다.
+
+중요한 점은 “미래 예측”이 아니라 “과거 참고 사례”로만 표현한다는 것입니다. 예를 들어 “이후 수익률이 높다”가 아니라 “당시에도 거래량 모멘텀과 연속 상승 점수가 높았다”처럼 설명합니다.
+
+### 3. Decision Pause
+
+사용자에게 매수/매도 답을 주지 않고, 결정을 멈추게 하는 질문을 제공합니다.
+
+예시:
+
+```text
+지금 판단의 근거가 정보인가요, 감정인가요?
+가격이 오른 뒤에야 관심이 생긴 것은 아닌가요?
+손실 허용 범위와 판단 근거를 말로 설명할 수 있나요?
+```
+
+---
+
+## 수상 전략
+
+### 1차: 아이디어 및 프로토타입 심사
+
+1차에서는 완성된 거대한 서비스보다 **문제 정의, 차별점, 시연 가능성**이 중요합니다.
+
+- 문제: 초보 투자자는 공포·탐욕 구간에서 정보와 감정을 구분하기 어렵다.
+- 해결: 시장 데이터를 쉬운 점수와 성찰 질문으로 번역한다.
+- 시연: KRW-BTC 현재 FOMO Score, 구성 요소, 과거 유사 구간, Decision Pause를 한 화면에서 보여준다.
+- 안정성: 공개 API만 사용하고 투자 권유 문구를 배제한다.
+
+### 2차: 프로덕트 및 BM 심사
+
+2차에서는 실제 서비스 가능성을 강조합니다.
+
+- 거래소 내 투자자 보호 위젯
+- 초보 투자자 교육용 대시보드
+- 리스크 커뮤니케이션 API 또는 B2B 리포트
+- 사용자 행동을 지시하지 않는 안전한 UX 패턴
+- API Key/Secret Key를 서버에 저장하지 않는 구조
+
+---
+
+## 기술 스택
+
+### Backend
+
+- Framework: FastAPI
+- Language: Python
+- HTTP Client: httpx
+- Test: pytest
+- Data Source: Upbit public quotation API
+
+### Frontend
+
+MVP 구현 후보:
+
+- Framework: Vite + React
+- Language: TypeScript
+- Chart: Recharts 또는 lightweight chart library
+- Styling: Tailwind CSS 또는 CSS Modules
+
+### Data / API
+
+MVP 필수 데이터는 업비트 공개 일봉 캔들입니다.
+
+```text
+GET https://api.upbit.com/v1/candles/days?market={market}&count=200
+```
+
+서버는 사용자 API Key 또는 Secret Key를 받거나 저장하지 않습니다.
+
+---
+
+## 프로젝트 구조
 
 ```text
 .
-├── README.md
-├── CONTRIBUTING.md
-├── .env.example
-├── .gitignore
-├── backend/              # FastAPI API 서버
-├── frontend/             # MVP 웹 클라이언트
-├── docs/                 # 기획, 산식, API, 규정 문서
-├── .github/              # 이슈/PR 템플릿
-└── fear_greed_tool/      # 초기 실험 코드, 추후 backend로 흡수 예정
+├─ README.md
+├─ CONTRIBUTING.md
+├─ .env.example
+├─ .gitignore
+│
+├─ backend/
+│  ├─ README.md
+│  ├─ requirements.txt
+│  ├─ app/
+│  │  ├─ main.py              # FastAPI 엔트리포인트
+│  │  ├─ upbit_client.py      # 업비트 공개 API 클라이언트
+│  │  └─ fomo_score.py        # FOMO Score 도메인 로직
+│  └─ tests/
+│     └─ test_fomo_score.py
+│
+├─ frontend/
+│  └─ README.md               # MVP 웹 클라이언트 작업 공간
+│
+├─ docs/
+│  ├─ product-brief.md        # 제품 문제 정의와 MVP 범위
+│  ├─ fomo-score-spec.md      # X1~X8 산식과 가중치
+│  ├─ api-design.md           # API 응답 설계
+│  ├─ compliance.md           # 보안/규정/금지 문구
+│  └─ team-workflow.md        # 팀 협업 방식
+│
+├─ .github/
+│  ├─ pull_request_template.md
+│  └─ ISSUE_TEMPLATE/
+│
+└─ fear_greed_tool/           # 초기 실험 코드, 추후 backend로 흡수 예정
 ```
 
-## 빠른 시작
+---
+
+## 실행 방법
 
 ### Backend
 
@@ -51,13 +166,133 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
+기본 확인:
+
+```text
+GET http://localhost:8000/api/health
+GET http://localhost:8000/api/fomo-score?market=KRW-BTC
+GET http://localhost:8000/api/fomo-history?market=KRW-BTC
+```
+
 ### Frontend
 
-프론트엔드 스택은 MVP 구현 시점에 확정합니다. 기본 후보는 Vite + React + TypeScript입니다.
+프론트엔드는 MVP 화면 구현 시점에 확정합니다. 기준 화면은 다음 흐름을 따릅니다.
 
-```powershell
-cd frontend
+1. 현재 FOMO Score 카드
+2. 구성 요소별 점수 바
+3. 200일 히스토리 차트
+4. Historical Mirror 카드
+5. Decision Pause 질문
+6. 면책 문구
+
+---
+
+## API 설계 초안
+
+### GET /api/fomo-score
+
+현재 시장의 FOMO Score를 반환합니다.
+
+```json
+{
+  "market": "KRW-BTC",
+  "fomo_score": 73.2,
+  "grade": "탐욕",
+  "grade_description": "매수 심리와 FOMO 조짐이 우세한 상태",
+  "components": {
+    "price_momentum": 68.0,
+    "price_strength": 82.0,
+    "market_breadth": 71.0,
+    "clv_pressure": 65.0,
+    "rsi": 74.0,
+    "volatility_inverse": 55.0,
+    "volume_momentum": 77.0,
+    "win_streak": 80.0
+  },
+  "disclaimer": "본 지수는 시장 상태 관찰 도구이며 투자 추천이 아닙니다."
+}
 ```
+
+### GET /api/fomo-history
+
+최근 200일의 FOMO Score 시계열을 반환합니다.
+
+```json
+{
+  "market": "KRW-BTC",
+  "items": [
+    {
+      "date": "2026-06-28",
+      "fomo_score": 73.2,
+      "grade": "탐욕"
+    }
+  ],
+  "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+}
+```
+
+---
+
+## 규정 및 보안 원칙
+
+### 반드시 지키는 것
+
+- 업비트 공개 API만 사용합니다.
+- 사용자 API Key 또는 Secret Key를 서버에 저장하지 않습니다.
+- 개인정보를 수집하지 않습니다.
+- UI와 API 응답에 면책 문구를 포함합니다.
+- 점수는 투자 판단이 아니라 시장 상태 관찰값으로 표현합니다.
+
+### 사용하지 않는 표현
+
+```text
+지금 사세요
+지금 파세요
+매수 기회입니다
+매도 신호입니다
+7일 뒤 수익률이 높습니다
+손실을 피할 수 있습니다
+수익을 보장합니다
+```
+
+### 사용하는 표현
+
+```text
+매수 심리와 FOMO 조짐이 우세한 상태입니다.
+과열과 추격매수 심리가 강한 상태입니다.
+이 수치는 시장 상태 관찰을 위한 참고값입니다.
+지금 판단의 근거가 정보인지 감정인지 확인해보세요.
+과거 유사 구간은 참고 사례이며 미래를 보장하지 않습니다.
+```
+
+---
+
+## LLM 개발 가이드 프롬프트
+
+아래 내용을 Codex 또는 다른 LLM에 입력하여 개발을 이어갈 수 있습니다.
+
+```text
+너는 2026 SKYSH Hackathon 수상을 목표로 하는 FOMO Break 팀의 개발자다.
+
+프로젝트 조건은 다음과 같다:
+
+1. 서비스는 업비트 공개 데이터 기반 시장 심리 관찰 도구다.
+2. 투자 추천, 투자 자문, 수익 보장 문구를 절대 사용하지 않는다.
+3. 사용자 API Key 또는 Secret Key를 서버에 저장하지 않는다.
+4. MVP 핵심 기능은 Emotion Score, Historical Mirror, Decision Pause다.
+5. Backend는 FastAPI와 Python으로 구현한다.
+6. 점수 계산은 backend/app/fomo_score.py에 둔다.
+7. 업비트 공개 API 호출은 backend/app/upbit_client.py에 둔다.
+8. API 엔드포인트는 backend/app/main.py에 둔다.
+9. Frontend는 현재 점수, 구성 요소, 히스토리, 유사 구간, 성찰 질문을 한 화면에서 보여준다.
+10. Historical Mirror는 미래 예측이 아니라 과거 참고 사례로 표현한다.
+11. 모든 화면과 API 응답에는 면책 문구가 포함되어야 한다.
+12. 기존 docs/ 문서의 산식과 규정 원칙을 우선한다.
+
+이 조건을 항상 유지하면서 코드를 작성하거나 수정해라.
+```
+
+---
 
 ## 주요 문서
 
@@ -66,6 +301,8 @@ cd frontend
 - [API 설계](docs/api-design.md)
 - [규정/보안 체크](docs/compliance.md)
 - [팀 협업 방식](docs/team-workflow.md)
+
+---
 
 ## 면책 문구
 
