@@ -345,11 +345,13 @@ function renderDemoStage() {
   const readinessInfo = state.overview?.current ? computeReadiness() : null;
   const readinessValue = readinessInfo ? Math.round(readinessInfo.readiness) : "--";
   const readinessTone = readinessInfo?.tone || "neutral";
-  const observationFlow = [
-    ["현재가", ticker ? "표시" : "확인"],
-    ["사례", topMirror ? formatCompactDate(topMirror.date) : `${mirrorCount}개`],
-    ["오차", longest ? `±${formatScore(Number(longest.error_band))}` : "계산"],
-    ["점검", `${pauseCount}/${PAUSE_CHECKS.length}`],
+  const activeFlowStep =
+    pauseCount === PAUSE_CHECKS.length ? 3 : state.demoStep >= 3 || virtualLog || pauseCount > 0 ? 2 : isAttempt ? 1 : 0;
+  const flowSteps = [
+    ["1", "행동 선택", "가상 행동과 수량"],
+    ["2", "데이터 확인", "공개 데이터만 사용"],
+    ["3", "자기 점검", "한 문항씩 확인"],
+    ["4", "마무리", "판단 근거 정리"],
   ];
   const selectedCopy = isAttempt
     ? "수량 입력과 전송 시도는 실제 주문이 아니라 화면 안의 점검 흐름으로만 처리됩니다."
@@ -373,6 +375,22 @@ function renderDemoStage() {
     button.classList.toggle("active", button.getAttribute("data-intent-mode") === state.intentMode);
   });
 
+  if ($("flowStepper")) {
+    $("flowStepper").innerHTML = flowSteps
+      .map(
+        ([number, title, copy], index) => `
+          <div class="flow-chip ${index < activeFlowStep ? "done" : ""} ${index === activeFlowStep ? "active" : ""}">
+            <span>${escapeHtml(number)}</span>
+            <div>
+              <strong>${escapeHtml(title)}</strong>
+              <p>${escapeHtml(copy)}</p>
+            </div>
+          </div>
+        `,
+      )
+      .join("");
+  }
+
   const activeScript = DEMO_SCRIPT[state.demoScriptIndex] || DEMO_SCRIPT[0];
   $("demoCaption").textContent = state.demoStartedAt ? activeScript.title : "발표 속도에 맞춰 천천히 전환됩니다.";
   $("demoScript").innerHTML = `
@@ -386,22 +404,22 @@ function renderDemoStage() {
   $("attemptScene").innerHTML = `
     <div class="attempt-head">
       <div>
-        <span>STEP 1</span>
-        <strong>가상 행동 선택</strong>
+        <span>1단계</span>
+        <strong>가상 행동을 선택하세요</strong>
+        <p>${escapeHtml(selectedCopy)}</p>
       </div>
       <em>${escapeHtml(selectedAction)}</em>
     </div>
-    <p class="attempt-copy">${escapeHtml(selectedCopy)}</p>
     <div class="attempt-body">
       <button class="attempt-card buy ${isBuy ? "active" : ""}" type="button" data-intent-mode="buy">
         <span>가상 매수</span>
         <strong>${isBuy ? "선택됨" : "선택하기"}</strong>
-        <small>주문 전송 없이 점검으로 이동</small>
+        <small>수량 입력 후 점검으로 이동</small>
       </button>
       <button class="attempt-card sell ${isSell ? "active" : ""}" type="button" data-intent-mode="sell">
         <span>가상 매도</span>
         <strong>${isSell ? "선택됨" : "선택하기"}</strong>
-        <small>API Key 없이 차단 상태 확인</small>
+        <small>전송 없이 차단 상태 확인</small>
       </button>
     </div>
     <form class="virtual-order-form" aria-label="화면 시연용 가상 주문 입력">
@@ -419,9 +437,9 @@ function renderDemoStage() {
         />
       </label>
       <button class="virtual-submit ${mode.tone}" type="button" data-virtual-submit ${isAttempt ? "" : "disabled"}>
-        가상 주문 전송 시도
+        전송 시도
       </button>
-      <p>${isAttempt ? "전송 시도는 화면 안에서만 기록되고 실제 주문 API는 호출하지 않습니다." : "먼저 가상 매수 또는 가상 매도를 선택합니다."}</p>
+      <p>${isAttempt ? "클릭하면 실제 주문 대신 자기 점검으로 이동합니다." : "먼저 가상 행동을 선택합니다."}</p>
     </form>
     <div class="virtual-order-log ${virtualLog ? mode.tone : "neutral"}" aria-live="polite">
       <span>${virtualLog ? "차단 로그" : "대기 로그"}</span>
@@ -433,12 +451,12 @@ function renderDemoStage() {
   $("observationConsole").innerHTML = `
     <div class="observation-head">
       <div>
-        <span>PUBLIC DATA OBSERVATION</span>
-        <strong>${escapeHtml(state.market)}</strong>
+        <span>2단계</span>
+        <strong>공개 데이터 확인</strong>
       </div>
-      <em>주문 없음 · 관찰</em>
+      <em>${escapeHtml(state.market)}</em>
     </div>
-    <div class="observation-main">
+    <div class="evidence-grid">
       <div class="observation-score">
         <span>FOMO Score</span>
         <strong>${Number.isFinite(score) ? formatScore(score) : "--"}</strong>
@@ -449,17 +467,16 @@ function renderDemoStage() {
         <strong>${ticker ? `${formatKrw(ticker.trade_price)} KRW` : "불러오는 중"}</strong>
         <p>${ticker ? formatSignedPercent(ticker.signed_change_rate) : "Upbit 공개 ticker"}</p>
       </div>
-    </div>
-    <div class="observation-flow" aria-label="공개 데이터 관찰 흐름">
-      ${observationFlow
-        .map(
-          ([label, value]) => `
-            <div>
-              <strong>${escapeHtml(`${label} ${value}`)}</strong>
-            </div>
-          `,
-        )
-        .join("")}
+      <div>
+        <span>과거 참고</span>
+        <strong>${topMirror ? escapeHtml(formatShortDate(topMirror.date)) : `${mirrorCount}개`}</strong>
+        <p>${topMirror ? `${formatScore(Number(topMirror.score))} · ${escapeHtml(topMirror.grade)}` : "유사 구간 확인"}</p>
+      </div>
+      <div>
+        <span>오차 범위</span>
+        <strong>${longest ? `±${formatScore(Number(longest.error_band))}` : "계산 중"}</strong>
+        <p>방향 단정 없음</p>
+      </div>
     </div>
   `;
 
@@ -473,8 +490,8 @@ function renderDemoStage() {
   $("intentTicket").innerHTML = `
     <div class="ticket-head">
       <div>
-        <span>주문 경로</span>
-        <strong>실거래 차단</strong>
+        <span>안전 경로</span>
+        <strong>주문 전송 없음</strong>
       </div>
       <em>${isAttempt ? ticketAction : "CLOSED"}</em>
     </div>
@@ -484,14 +501,14 @@ function renderDemoStage() {
     </div>
     <p>${escapeHtml(ticketCopy)}</p>
     <button class="blocked-submit ${isAttempt ? mode.tone : "neutral"}" type="button" data-open-pause>
-      점검 열기
+      점검 시작
     </button>
   `;
   document.querySelector(".pause-live-status")?.remove();
   $("quickPauseList").insertAdjacentHTML(
     "beforebegin",
     `
-      <div class="pause-live-status ${readinessTone}">
+      <div class="pause-live-status ${readinessTone}" style="--ready:${Number.isFinite(Number(readinessValue)) ? Math.max(0, Math.min(100, Number(readinessValue))) : 0}%">
         <div>
           <span>판단 준비도</span>
           <strong>${escapeHtml(String(readinessValue))}</strong>
@@ -505,7 +522,7 @@ function renderDemoStage() {
   );
   $("quickPauseList").innerHTML = `
     <div class="pause-slide-card">
-      <span>${pauseSlideIndex + 1} / ${PAUSE_CHECKS.length}</span>
+      <span>3단계 · ${pauseSlideIndex + 1} / ${PAUSE_CHECKS.length}</span>
       <strong>${escapeHtml(activePause.title)}</strong>
       <p>${escapeHtml(activePause.copy)}</p>
       <button class="slide-check" type="button" data-check-id="${escapeHtml(activePause.id)}" aria-pressed="${state.pauseChecks[activePause.id]}">
