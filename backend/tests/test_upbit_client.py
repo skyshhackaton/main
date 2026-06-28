@@ -191,3 +191,87 @@ def test_validate_detects_value_errors():
     reasons = {e["reason"] for e in report["value_errors"]}
     assert "negative volume" in reasons
     assert "non-positive price" in reasons
+
+
+# ---------------------------------------------------------------------------
+# 엣지케이스: 오늘 partial candle 갱신 / off-by-one / 마켓 격리 / 실패 격리
+# ---------------------------------------------------------------------------
+
+def test_update_refreshes_last_day_partial_candle(monkeypatch, tmp_path):
+    """DB의 마지막 날(=오늘) 캔들이 API에서 바뀌면 덮어써야 함(stale 방지)."""
+    db = tmp_path / "t.db"
+    # 기존 DB: day1~day5, day5는 오전 partial candle(종가 999)
+    seed = [upbit_client._normalize(c) for c in _make_raw(_dates(1, 5))]
+    seed[-1]["close"] = 999.0  # 미완성 값
+    upbit_client.save_candles(seed, "KRW-BTC", db)
+
+    # API: day1~day5, day5 종가가 확정값으로 바뀜
+    api = _make_raw(_dates(1, 5))
+    for raw in api:
+        if raw["candle_date_time_utc"] == "2024-01-05T00:00:00":
+            raw["trade_price"] = 555.0  # 확정 종가
+    _install_fake(monkeypatch, api)
+
+    added = asyncio.run(upbit_client.update_candles("KRW-BTC", db))
+    assert added == 0  # 신규 날짜는 없음
+    loaded = upbit_client.load_candles("KRW-BTC", db)
+    assert len(loaded) == 5  # 중복 없음
+    # 오늘(day5) 캔들이 확정 종가로 갱신됨
+    assert loaded[-1]["close"] == 555.0
+
+
+def test_update_no_off_by_one_duplicate(monkeypatch, tmp_path):
+    """증분 갱신 후 같은 날짜가 중복 저장되지 않아야 함."""
+    db = tmp_path / "t.db"
+    seed = [upbit_client._normalize(c) for c in _make_raw(_dates(1, 5))]
+    upbit_client.save_candles(seed, "KRW-BTC", db)
+    _install_fake(monkeypatch, _make_raw(_dates(1, 8)))
+
+    asyncio.run(upbit_client.update_candles("KRW-BTC", db))
+    loaded = upbit_client.load_candles("KRW-BTC", db)
+    dates = [c["date_utc"] for c in loaded]
+    assert len(dates) == len(set(dates))  # 중복 없음
+    assert dates == sorted(dates)          # oldest-first 유지
+
+
+def test_markets_do_not_collide_on_same_date(tmp_path):
+    """KRW-BTC와 KRW-ETH가 같은 날짜를 가져도 서로 덮어쓰지 않음."""
+    db = tmp_path / "t.db"
+    btc = [upbit_client._normalize(c) for c in _make_raw(_dates(1, 3))]
+    eth = [upbit_client._normalize(c) for c in _make_raw(_dates(1, 3))]
+    for c in eth:
+        c["close"] = c["close"] + 10000  # 구분되는 값
+    upbit_client.save_candles(btc, "KRW-BTC", db)
+    upbit_client.save_candles(eth, "KRW-ETH", db)
+
+    btc_loaded = upbit_client.load_candles("KRW-BTC", db)
+    eth_loaded = upbit_client.load_candles("KRW-ETH", db)
+    assert len(btc_loaded) == 3 and len(eth_loaded) == 3
+    assert btc_loaded[0]["close"] != eth_loaded[0]["close"]
+
+
+def test_refresh_markets_isolates_failure(monkeypatch, tmp_path):
+    """한 마켓이 실패해도 나머지 마켓은 정상 처리되어야 함."""
+    db = tmp_path / "t.db"
+    full = _make_raw(_dates(1, 5))
+
+    async def flaky(market, count=200, to=None):
+        if market == "KRW-ETH":
+            raise RuntimeError("simulated network error")
+        if to is None:
+            start = 0
+        else:
+            to_norm = to.replace(" ", "T")
+            start = next((i for i, c in enumerate(full)
+                          if c["candle_date_time_utc"] < to_norm), len(full))
+        return full[start:start + count]
+
+    monkeypatch.setattr(upbit_client, "fetch_day_candles", flaky)
+
+    result = asyncio.run(
+        upbit_client.refresh_markets(["KRW-BTC", "KRW-ETH", "KRW-XRP"], db)
+    )
+    assert result["KRW-BTC"] == 5            # 성공 (full)
+    assert result["KRW-XRP"] == 5            # 실패 마켓 뒤에도 정상 실행
+    assert isinstance(result["KRW-ETH"], dict)
+    assert result["KRW-ETH"]["error"] == "RuntimeError"
