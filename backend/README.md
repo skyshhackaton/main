@@ -9,7 +9,7 @@ FastAPI 기반 FOMO Break API 서버입니다.
 - 200일 히스토리 반환
 - Historical Mirror 후보 구간 반환
 - KNN Mirror 후보 구간 반환
-- FOMO Score 추세 참고값 반환
+- FOMO Score 흐름 참고값 반환
 - Decision Pause 질문 반환
 - MVP 시연용 통합 응답 반환
 
@@ -32,3 +32,5 @@ uvicorn app.main:app --reload
 - `GET /api/historical-mirror?market=KRW-BTC`
 - `GET /api/knn-mirror?market=KRW-BTC`
 - `GET /api/score-forecast?market=KRW-BTC`
+
+`/api/score-forecast`는 가격이나 수익률이 아니라 FOMO Score 자체의 참고 흐름과 백테스트 오차 범위를 반환합니다.

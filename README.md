@@ -181,14 +181,20 @@ GET http://localhost:8000/api/score-forecast?market=KRW-BTC
 
 ### Frontend
 
-프론트엔드는 MVP 화면 구현 시점에 확정합니다. 기준 화면은 다음 흐름을 따릅니다.
+정적 HTML/CSS/JS 기반 MVP 화면입니다. 백엔드를 먼저 실행한 뒤 별도 터미널에서 프론트엔드 정적 서버를 띄웁니다.
 
-1. 현재 FOMO Score 카드
-2. 구성 요소별 점수 바
-3. 200일 히스토리 차트
-4. Historical Mirror 카드
-5. Decision Pause 질문
-6. 면책 문구
+```powershell
+cd frontend
+python -m http.server 5173
+```
+
+브라우저에서 확인:
+
+```text
+http://127.0.0.1:5173
+```
+
+화면은 현재 FOMO Score, 시장 레이더, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `세 마켓 비교`, `오차 범위`, `과거 유사 구간`, `자기 점검 체크리스트`를 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
 
 ---
 
@@ -339,6 +345,37 @@ Historical Mirror와 같은 화면에서 비교 가능한 KNN 기반 과거 참�
   "similar_periods": [],
   "stats": {"sample_count": 5},
   "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+}
+```
+
+### GET /api/score-forecast
+
+FOMO Score 자체의 단기 참고 흐름을 반환합니다. 가격, 수익률, 매수/매도 행동을 예측하지 않으며, 백테스트 MAE를 오차 범위로 함께 보여주어 변화폭이 방향으로 해석 가능한 수준인지 확인할 수 있게 합니다.
+
+```json
+{
+  "market": "KRW-BTC",
+  "current_score": 42.33,
+  "current_grade": "중립",
+  "method_label": "FOMO Score 흐름 참고",
+  "comparison_basis": ["fomo_score_lags", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
+  "forecast": [
+    {
+      "horizon_days": 7,
+      "predicted_score": 38.52,
+      "grade": "공포",
+      "score_delta": -3.81,
+      "error_band": 5.096,
+      "trend_direction": "within_error_band",
+      "trend_label": "오차 범위 내",
+      "confidence_level": "medium",
+      "confidence_label": "보통",
+      "interpretation": "현재 점수와의 차이가 백테스트 오차 범위 안에 있어 방향으로 단정하지 않습니다. 시장 상태 관찰과 자기 점검을 위한 참고값입니다."
+    }
+  ],
+  "summary": "현재 FOMO Score 42.33점 기준, 7일 참고값은 백테스트 오차 범위 안에 있습니다. 방향을 단정하기보다 지금 판단의 근거를 점검하는 데 사용하세요.",
+  "caution": "FOMO Score 참고 흐름은 시장 상태 관찰값이며 가격/수익률 예측이나 투자 추천이 아닙니다.",
+  "disclaimer": "FOMO Score 흐름 참고값은 시장 심리 상태 관찰용이며 가격·수익률 예측이 아닙니다. 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
 }
 ```
 

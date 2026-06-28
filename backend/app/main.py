@@ -75,7 +75,11 @@ def _require_non_negative_number(name: str, value: float) -> None:
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "fomo-break-api"}
+    return {
+        "status": "ok",
+        "service": "fomo-break-api",
+        "disclaimer": DISCLAIMER,
+    }
 
 
 @app.get("/api/fomo-score")
@@ -192,8 +196,8 @@ def get_historical_mirror(
 
 
 FORECAST_DISCLAIMER = (
-    "예측 대상은 시장 심리 상태값(FOMO Score)이며 가격·수익률 예측이 아닙니다. "
-    "참고용 관찰 지표일 뿐 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
+    "FOMO Score 흐름 참고값은 시장 심리 상태 관찰용이며 가격·수익률 예측이 아닙니다. "
+    "투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
 )
 
 
