@@ -329,6 +329,12 @@ function renderDemoStage() {
   const readinessInfo = state.overview?.current ? computeReadiness() : null;
   const readinessValue = readinessInfo ? Math.round(readinessInfo.readiness) : "--";
   const readinessTone = readinessInfo?.tone || "neutral";
+  const observationFlow = [
+    ["1", "공개 데이터", ticker ? "현재가 표시" : "연결 확인"],
+    ["2", "과거 사례", topMirror ? topMirror.date : `${mirrorCount}개 표본`],
+    ["3", "오차 범위", longest ? `±${formatScore(Number(longest.error_band))}` : "계산 중"],
+    ["4", "자기 점검", `${pauseCount}/${PAUSE_CHECKS.length}개 확인`],
+  ];
   const selectedCopy = isAttempt
     ? "아래 장면은 사용자가 행동 버튼을 누른 직후입니다. 가상 수량 입력과 전송 시도는 화면 안에서만 처리됩니다."
     : "가상 매수 또는 가상 매도 버튼을 누르면, 이 영역이 실제 사용 장면처럼 바뀝니다.";
@@ -474,6 +480,19 @@ function renderDemoStage() {
         <p>정보와 감정 분리</p>
       </div>
     </div>
+    <div class="observation-flow" aria-label="공개 데이터 관찰 흐름">
+      ${observationFlow
+        .map(
+          ([index, label, value]) => `
+            <div>
+              <span>${escapeHtml(index)}</span>
+              <strong>${escapeHtml(label)}</strong>
+              <p>${escapeHtml(value)}</p>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
   `;
 
   const ticketLabel = ticketMode === "sell" ? "가상 매도 티켓" : ticketMode === "buy" ? "가상 매수 티켓" : "가상 행동 대기";
@@ -530,6 +549,7 @@ function renderDemoStage() {
     (item) => `
       <button class="quick-pause-toggle" type="button" data-check-id="${escapeHtml(item.id)}" aria-pressed="${state.pauseChecks[item.id]}">
         <span>${escapeHtml(item.title)}</span>
+        <p>${escapeHtml(item.copy)}</p>
         <strong>${state.pauseChecks[item.id] ? "확인됨" : "확인 필요"}</strong>
       </button>
     `,
@@ -721,9 +741,10 @@ function computeReadiness() {
 
 function renderReadiness() {
   const info = computeReadiness();
-  $("readinessValue").textContent = `${Math.round(info.readiness)}`;
-  $("readinessValue").style.borderColor =
-    info.tone === "alert" ? "#f0b7b7" : info.tone === "warn" ? "#f3d394" : "#b8dad6";
+  const readinessColor = info.tone === "alert" ? "#c94f4f" : info.tone === "warn" ? "#c9891b" : "#1b8a8f";
+  $("readinessValue").innerHTML = `<strong>${Math.round(info.readiness)}</strong><span>/100</span>`;
+  $("readinessValue").style.setProperty("--readiness-progress", `${Math.round(info.readiness)}%`);
+  $("readinessValue").style.setProperty("--readiness-color", readinessColor);
   $("readinessLabel").textContent = info.label;
   $("readinessLabel").className = `pill ${info.tone}`;
   $("readinessTitle").textContent = info.title;
