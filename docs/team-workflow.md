@@ -41,6 +41,7 @@
    - 유사 구간 기준 정의
    - 200일 히스토리 검증
    - 가중치 조정 후보 기록
+   - KNN Mirror 피처/응답 계약은 `docs/knn-integration-contract.md` 기준으로 맞춤
 
 ## 오늘의 우선순위
 
