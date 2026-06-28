@@ -1,0 +1,1 @@
+﻿"""FOMO Break backend package."""
