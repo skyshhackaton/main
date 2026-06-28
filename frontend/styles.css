@@ -1876,6 +1876,9 @@ button:disabled {
   text-align: left;
   transform: translate(-50%, 4px);
   transition: opacity 0.12s ease, transform 0.12s ease;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .info-tip::before {
@@ -3649,7 +3652,24 @@ body {
 }
 
 .evidence-label .info-tip::after {
-  width: min(360px, 86vw);
+  left: 0;
+  width: min(320px, calc(100vw - 32px));
+  transform: translate(0, 4px);
+}
+
+.evidence-label .info-tip::before {
+  left: 8px;
+  transform: translate(0, 4px) rotate(45deg);
+}
+
+.evidence-label .info-tip:hover::after,
+.evidence-label .info-tip:focus-visible::after {
+  transform: translate(0, 0);
+}
+
+.evidence-label .info-tip:hover::before,
+.evidence-label .info-tip:focus-visible::before {
+  transform: translate(0, 0) rotate(45deg);
 }
 
 .evidence-grid strong {
