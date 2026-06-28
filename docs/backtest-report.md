@@ -21,7 +21,7 @@ FOMO Score의 가중치가 과거 200일에서 어떤 결과를 보이는지 검
 | `fomo_score.score_series` | 통과 | 시점 `t`에서 `score_at(candles[:t+1])` 호출 |
 | `fomo_score._calc_indicators` | 통과 | 전달받은 과거 슬라이스 내부의 trailing window만 사용 |
 | `backtest.evaluate_weights` | 통과 | 미래 종가는 점수 계산이 끝난 뒤 평가 라벨에만 사용 |
-| `historical_mirror.analyze_historical_mirror` | 통과 | 과거 점수는 `score_series`로 생성하고 미래 수익률은 과거 유사 사례의 사후 통계에만 사용 |
+| `historical_mirror.build_historical_mirror` | 통과 | 과거 점수는 `score_series`로 생성하고 미래 수익률은 과거 유사 사례의 사후 통계에만 사용 |
 | `upbit_client` | 해당 없음 | 캔들 수집·정규화·oldest-first 정렬·저장만 수행하며 지표를 계산하지 않음 |
 | `data_export` | 해당 없음 | 저장된 캔들의 형식 변환과 내보내기만 수행하며 지표를 계산하지 않음 |
 | `main` | 통과 | 점수 및 유사 구간 계산을 검증된 도메인 함수에 위임하고 별도 미래 데이터를 주입하지 않음 |
