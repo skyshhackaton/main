@@ -437,6 +437,134 @@ button:disabled {
   line-height: 1.5;
 }
 
+.observation-console {
+  padding: 16px;
+  border: 1px solid rgba(45, 155, 109, 0.34);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(18, 36, 44, 0.72), rgba(8, 16, 24, 0.78)),
+    repeating-linear-gradient(90deg, rgba(45, 155, 109, 0.1) 0 1px, transparent 1px 42px);
+}
+
+.observation-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.observation-head span,
+.observation-head strong,
+.observation-head em {
+  display: block;
+}
+
+.observation-head span {
+  margin-bottom: 5px;
+  color: #63d29f;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.observation-head strong {
+  color: #ffffff;
+  font-size: 1.08rem;
+}
+
+.observation-head em {
+  max-width: 160px;
+  color: #aebccd;
+  font-size: 0.76rem;
+  font-style: normal;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.observation-main {
+  display: grid;
+  grid-template-columns: minmax(128px, 0.68fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.observation-score,
+.observation-price,
+.observation-grid div {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.observation-score,
+.observation-price {
+  min-height: 116px;
+  padding: 13px;
+}
+
+.observation-score span,
+.observation-score strong,
+.observation-score p,
+.observation-price span,
+.observation-price strong,
+.observation-price p,
+.observation-grid span,
+.observation-grid strong,
+.observation-grid p {
+  display: block;
+}
+
+.observation-score span,
+.observation-price span,
+.observation-grid span {
+  margin-bottom: 7px;
+  color: #92a4b8;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.observation-score strong {
+  color: #ffffff;
+  font-size: 2.6rem;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
+.observation-price strong {
+  color: #ffffff;
+  font-size: 1.42rem;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.observation-score p,
+.observation-price p,
+.observation-grid p {
+  margin-top: 8px;
+  color: #b8c4d2;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.observation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.observation-grid div {
+  min-height: 92px;
+  padding: 11px;
+}
+
+.observation-grid strong {
+  color: #f7fafc;
+  font-size: 1rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .firewall-lockup {
   display: grid;
   grid-template-columns: minmax(170px, 0.82fr) minmax(0, 1.18fr);
@@ -1363,6 +1491,7 @@ button:disabled {
 
   .demo-flow,
   .firewall-lockup,
+  .observation-main,
   .intent-evidence {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1407,6 +1536,15 @@ button:disabled {
     text-align: left;
   }
 
+  .observation-head {
+    display: grid;
+  }
+
+  .observation-head em {
+    max-width: none;
+    text-align: left;
+  }
+
   .demo-actions {
     display: grid;
     grid-template-columns: 1fr;
@@ -1414,6 +1552,8 @@ button:disabled {
 
   .demo-flow,
   .firewall-lockup,
+  .observation-grid,
+  .observation-main,
   .intent-evidence {
     grid-template-columns: 1fr;
   }
