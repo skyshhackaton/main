@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:8000";
+const DEFAULT_API_ORIGIN = "http://127.0.0.1:8000";
 const MARKETS = ["KRW-BTC", "KRW-ETH", "KRW-XRP"];
 const PAUSE_CHECKS = [
   {
@@ -27,12 +27,37 @@ const state = {
   market: "KRW-BTC",
   overview: null,
   forecast: null,
+  pattern: null,
   health: null,
   marketSnapshots: [],
+  errors: {},
   pauseChecks: Object.fromEntries(PAUSE_CHECKS.map((item) => [item.id, false])),
 };
 
 const $ = (id) => document.getElementById(id);
+
+function normalizeApiBase(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+function resolveApiBase() {
+  const params = new URLSearchParams(window.location.search);
+  const configured = normalizeApiBase(params.get("api") || localStorage.getItem("fomoBreakApiBase"));
+  if (configured) return configured;
+
+  if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+    const staticServerPorts = new Set(["3000", "4173", "5173", "5500", "8080"]);
+    if (!staticServerPorts.has(window.location.port)) return "";
+    if (["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)) {
+      return `${window.location.protocol}//${window.location.hostname}:8000`;
+    }
+  }
+
+  return DEFAULT_API_ORIGIN;
+}
+
+const API_BASE = resolveApiBase();
+const API_LABEL = API_BASE || window.location.origin || DEFAULT_API_ORIGIN;
 
 const formatScore = (value) => (Number.isFinite(value) ? value.toFixed(2) : "--");
 
@@ -50,7 +75,12 @@ const escapeHtml = (value) =>
     .replaceAll("'", "&#039;");
 
 async function fetchJson(path) {
-  const response = await fetch(`${API_BASE}${path}`);
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`);
+  } catch (error) {
+    throw new Error(`API 연결 실패 (${API_LABEL})`);
+  }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(body.detail || `${response.status} ${response.statusText}`);
@@ -67,8 +97,35 @@ function setLoading(isLoading) {
 function setError(error) {
   $("apiStatus").textContent = "API 확인 필요";
   $("apiStatus").className = "status-dot error";
-  $("updatedAt").textContent = error.message;
-  $("scoreDescription").innerHTML = `<span class="error-box">${escapeHtml(error.message)}</span>`;
+  $("updatedAt").textContent = `${error.message} · ${API_LABEL}`;
+  $("scoreValue").textContent = "--";
+  $("currentGrade").textContent = "-";
+  $("currentGrade").className = "pill alert";
+  $("scoreDescription").innerHTML = `
+    <span class="error-box">
+      ${escapeHtml(error.message)}
+      <br />백엔드 서버를 실행한 뒤 새로고침하세요.
+    </span>
+  `;
+  $("indicatorBars").innerHTML = "";
+  $("marketRadar").innerHTML = `<div class="empty-state">API 연결 후 시장 레이더가 표시됩니다.</div>`;
+  $("radarSummary").textContent = "연결 필요";
+  $("radarSummary").className = "pill alert";
+  $("readinessValue").textContent = "--";
+  $("readinessLabel").textContent = "확인 필요";
+  $("readinessLabel").className = "pill alert";
+  $("readinessTitle").textContent = "API 연결을 먼저 확인합니다.";
+  $("readinessCopy").textContent = "시장 상태와 과거 참고 사례를 불러오지 못했습니다.";
+  $("readinessBreakdown").innerHTML = "";
+  $("checkGrid").innerHTML = "";
+  $("historyChart").innerHTML = "";
+  $("historyRange").textContent = "데이터 없음";
+  $("mirrorList").innerHTML = `<div class="mirror-card">API 연결 후 과거 유사 구간이 표시됩니다.</div>`;
+  $("uncertaintyLens").innerHTML = `<div class="empty-state">API 연결 후 오차 범위가 표시됩니다.</div>`;
+  $("forecastList").innerHTML = "";
+  $("patternList").innerHTML = "";
+  $("pauseChecklist").innerHTML = "";
+  $("pauseList").innerHTML = "";
 }
 
 function gradeTone(score) {
@@ -111,8 +168,9 @@ function renderCurrent() {
 function renderMarketRadar() {
   const snapshots = state.marketSnapshots;
   if (!snapshots.length) {
-    $("marketRadar").innerHTML = "";
-    $("radarSummary").textContent = "계산 중";
+    $("marketRadar").innerHTML = `<div class="empty-state">선택한 마켓 기준으로 관찰 중입니다.</div>`;
+    $("radarSummary").textContent = state.errors.radar ? "일부 확인 필요" : "계산 중";
+    $("radarSummary").className = `pill ${state.errors.radar ? "warn" : "neutral"}`;
     return;
   }
 
@@ -316,6 +374,15 @@ function renderMirror() {
 
 function renderForecast() {
   const items = state.forecast?.forecast || [];
+  if (!items.length) {
+    $("forecastList").innerHTML = `
+      <div class="forecast-card">
+        <p class="card-copy">FOMO Score 흐름 참고값을 불러오지 못했습니다. 현재 점수와 과거 유사 구간을 먼저 확인합니다.</p>
+      </div>
+    `;
+    return;
+  }
+
   $("forecastList").innerHTML = items
     .map((item, index) => {
       const featured = index === items.length - 1 ? " featured" : "";
@@ -343,6 +410,11 @@ function renderForecast() {
 function renderUncertaintyLens() {
   const currentScore = Number(state.forecast?.current_score ?? state.overview.current.score);
   const items = state.forecast?.forecast || [];
+  if (!items.length) {
+    $("uncertaintyLens").innerHTML = `<div class="empty-state">오차 범위 참고값을 불러오지 못했습니다.</div>`;
+    return;
+  }
+
   $("uncertaintyLens").innerHTML = items
     .map((item) => {
       const predicted = Number(item.predicted_score);
@@ -366,6 +438,71 @@ function renderUncertaintyLens() {
       `;
     })
     .join("");
+}
+
+function renderPattern() {
+  const pattern = state.pattern;
+  if (!pattern?.band?.mean?.length) {
+    $("patternList").innerHTML = `
+      <div class="pattern-card">
+        <p class="card-copy">KNN 패턴 참고 사례를 불러오지 못했습니다. 과거 유사 구간과 오차 범위를 함께 확인합니다.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const steps = pattern.band.steps || [];
+  const mean = pattern.band.mean || [];
+  const p10 = pattern.band.p10 || [];
+  const p90 = pattern.band.p90 || [];
+  const endIndex = mean.length - 1;
+  const endMean = mean[endIndex];
+  const endLow = p10[endIndex];
+  const endHigh = p90[endIndex];
+
+  $("patternList").innerHTML = `
+    <div class="pattern-card featured">
+      <div class="card-top">
+        <div>
+          <div class="card-title">${pattern.window}일 패턴 · ${pattern.horizon}일 참고 분포</div>
+          <div class="card-meta">과거 ${pattern.k}개 유사 패턴 기준</div>
+        </div>
+        <span class="pill neutral">${escapeHtml(pattern.metric)}</span>
+      </div>
+      <p class="card-copy">${escapeHtml(pattern.summary)}</p>
+      <div class="metric-row">
+        <div class="metric"><span>평균</span><strong>${formatScore(Number(endMean))}</strong></div>
+        <div class="metric"><span>낮은 범위</span><strong>${formatScore(Number(endLow))}</strong></div>
+        <div class="metric"><span>높은 범위</span><strong>${formatScore(Number(endHigh))}</strong></div>
+      </div>
+      <div class="pattern-path" aria-label="KNN 패턴 평균 경로">
+        ${steps
+          .map((step, index) => {
+            const value = Number(mean[index]);
+            const left = steps.length <= 1 ? 0 : (index / (steps.length - 1)) * 100;
+            const top = 100 - Math.max(0, Math.min(100, value));
+            return `<span title="${step}일 ${formatScore(value)}" style="left:${left}%; top:${top}%"></span>`;
+          })
+          .join("")}
+      </div>
+    </div>
+    ${(pattern.candidates || [])
+      .slice(0, 3)
+      .map(
+        (item) => `
+          <div class="pattern-card">
+            <div class="card-top">
+              <div>
+                <div class="card-title">${escapeHtml(item.match_end_date)}</div>
+                <div class="card-meta">거리 ${formatScore(Number(item.distance))} · 종료 등급 ${escapeHtml(item.anchored_end_grade)}</div>
+              </div>
+              <span class="pill ${gradeTone(Number(item.match_end_score))}">${formatScore(Number(item.match_end_score))}</span>
+            </div>
+          </div>
+        `,
+      )
+      .join("")}
+  `;
 }
 
 function renderPause() {
@@ -401,6 +538,7 @@ function renderAll() {
   renderMirror();
   renderUncertaintyLens();
   renderForecast();
+  renderPattern();
   renderPauseChecklist();
   renderPause();
   $("disclaimerText").textContent =
@@ -412,30 +550,57 @@ function renderAll() {
   });
 }
 
+async function fetchOptional(path) {
+  try {
+    return { data: await fetchJson(path), error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
 async function loadDashboard() {
   setLoading(true);
+  state.errors = {};
   try {
     const market = state.market;
-    const [health, overview, forecast, marketSnapshots] = await Promise.all([
-      fetchJson("/api/health"),
-      fetchJson(
-        `/api/mvp-overview?market=${encodeURIComponent(market)}&history_days=120&mirror_days=200&tolerance=10&max_periods=5`,
+    const overview = await fetchJson(
+      `/api/mvp-overview?market=${encodeURIComponent(market)}&history_days=120&mirror_days=200&tolerance=10&max_periods=5`,
+    );
+
+    const [healthResult, forecastResult, patternResult, radarResults] = await Promise.all([
+      fetchOptional("/api/health"),
+      fetchOptional(`/api/score-forecast?market=${encodeURIComponent(market)}&days=200`),
+      fetchOptional(
+        `/api/knn-pattern?market=${encodeURIComponent(market)}&window=10&horizon=30&k=10&metric=raw`,
       ),
-      fetchJson(`/api/score-forecast?market=${encodeURIComponent(market)}&days=200`),
       Promise.all(
         MARKETS.map((item) =>
-          fetchJson(
+          fetchOptional(
             `/api/mvp-overview?market=${encodeURIComponent(item)}&history_days=30&mirror_days=120&tolerance=10&max_periods=3`,
           ),
         ),
       ),
     ]);
-    state.health = health;
+
+    const marketSnapshots = radarResults.map((result) => result.data).filter(Boolean);
+    if (!marketSnapshots.some((item) => item.market === market)) {
+      marketSnapshots.unshift({ market, current: overview.current });
+    }
+
+    if (healthResult.error) state.errors.health = healthResult.error;
+    if (forecastResult.error) state.errors.forecast = forecastResult.error;
+    if (patternResult.error) state.errors.pattern = patternResult.error;
+    if (radarResults.some((result) => result.error)) state.errors.radar = true;
+
+    state.health = healthResult.data;
     state.overview = overview;
-    state.forecast = forecast;
+    state.forecast = forecastResult.data;
+    state.pattern = patternResult.data;
     state.marketSnapshots = marketSnapshots;
-    setLoading(false);
     renderAll();
+    const hasOptionalErrors = Object.keys(state.errors).length > 0;
+    $("apiStatus").textContent = hasOptionalErrors ? "일부 API 확인" : "API 연결됨";
+    $("apiStatus").className = `status-dot ${hasOptionalErrors ? "" : "ok"}`;
   } catch (error) {
     setError(error);
   } finally {

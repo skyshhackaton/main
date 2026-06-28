@@ -1,4 +1,4 @@
-﻿# FOMO Break – 2026 SKYSH Hackathon MVP
+# FOMO Break – 2026 SKYSH Hackathon MVP
 
 > 당신이 지금 사려는 이유는 정말 정보 때문인가, 아니면 감정 때문인가?
 
@@ -179,22 +179,30 @@ GET http://localhost:8000/api/knn-mirror?market=KRW-BTC
 GET http://localhost:8000/api/score-forecast?market=KRW-BTC
 ```
 
+로컬 SQLite DB가 없을 때는 커밋된 `data/upbit_candles_history.csv` 또는 `data/upbit_candles_snapshot.csv`를 읽어 발표용 API가 동작합니다. DB 파일은 커밋하지 않습니다.
+
 ### Frontend
 
-정적 HTML/CSS/JS 기반 MVP 화면입니다. 백엔드를 먼저 실행한 뒤 별도 터미널에서 프론트엔드 정적 서버를 띄웁니다.
+정적 HTML/CSS/JS 기반 MVP 화면입니다. 백엔드가 프론트엔드 파일도 함께 서빙하므로, `uvicorn` 실행 후 바로 확인할 수 있습니다.
+
+```text
+http://127.0.0.1:8000
+```
+
+프론트엔드만 따로 띄우고 싶다면 별도 터미널에서 정적 서버를 실행합니다.
 
 ```powershell
 cd frontend
 python -m http.server 5173
 ```
 
-브라우저에서 확인:
+별도 정적 서버로 확인:
 
 ```text
 http://127.0.0.1:5173
 ```
 
-화면은 현재 FOMO Score, 시장 레이더, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `세 마켓 비교`, `오차 범위`, `과거 유사 구간`, `자기 점검 체크리스트`를 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
+화면은 현재 FOMO Score, 시장 레이더, 최근 흐름, Historical Mirror, FOMO Score 흐름 참고, KNN 패턴 참고, Decision Pause를 한 페이지에 묶습니다. 차별화 포인트는 점수만 보여주는 것이 아니라 `세 마켓 비교`, `오차 범위`, `과거 유사 구간`, `패턴 분포`, `자기 점검 체크리스트`를 함께 보여주어 감정적 판단 전에 근거를 확인하게 하는 흐름입니다.
 
 ---
 
@@ -393,15 +401,10 @@ FOMO Score 자체의 단기 참고 흐름을 반환합니다. 가격, 수익률,
 
 ### 사용하지 않는 표현
 
-```text
-지금 사세요
-지금 파세요
-매수 기회입니다
-매도 신호입니다
-7일 뒤 수익률이 높습니다
-손실을 피할 수 있습니다
-수익을 보장합니다
-```
+- 즉시 행동을 지시하는 표현
+- 매수·매도 타이밍으로 해석되는 표현
+- 미래 수익률이나 손실 회피를 단정하는 표현
+- 수익 또는 성과를 보장하는 표현
 
 ### 사용하는 표현
 

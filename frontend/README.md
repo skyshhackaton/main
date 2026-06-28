@@ -16,21 +16,27 @@ FOMO Break MVP 웹 클라이언트입니다. 별도 빌드 없이 정적 HTML/CS
 
 ## 실행
 
-백엔드를 먼저 실행합니다.
+백엔드 하나만 실행해도 API와 화면을 함께 확인할 수 있습니다.
 
 ```powershell
 cd C:\Coding\2026SKYSH\main\backend
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-다른 터미널에서 정적 서버를 실행합니다.
+브라우저에서 엽니다.
+
+```text
+http://127.0.0.1:8000
+```
+
+프론트엔드만 따로 띄우고 싶다면 다른 터미널에서 정적 서버를 실행합니다.
 
 ```powershell
 cd C:\Coding\2026SKYSH\main\frontend
 python -m http.server 5173
 ```
 
-브라우저에서 엽니다.
+이 경우에도 프론트는 기본적으로 `http://127.0.0.1:8000` API를 호출합니다.
 
 ```text
 http://127.0.0.1:5173
