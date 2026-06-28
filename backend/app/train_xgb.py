@@ -21,6 +21,7 @@ from app.forecast_score import (
     MODEL_NAME,
     RANDOM_STATE,
     _build_supervised,
+    _features_at,
     _new_model,
 )
 from app.knn_mirror import FEATURE_NAMES, build_feature_matrix
@@ -192,6 +193,7 @@ def evaluate_xgb_holdout(
     params: dict | None = None,
     train_ratio: float = DEFAULT_TRAIN_RATIO,
     days: int | None = None,
+    collect: bool = False,
 ) -> dict:
     """단일 train/val 분리 평가 (모델 간 비교용). persistence 대비 skill 반환."""
     if not 0.0 < train_ratio < 1.0:
@@ -209,13 +211,40 @@ def evaluate_xgb_holdout(
     val_mae, _ = metrics(y[split:], pred)
     persist_mae = float(np.mean(np.abs(X[split:, lags - 1] - y[split:])))
     skill = 1.0 - val_mae / persist_mae if persist_mae > 0 else None
-    return {
+    out = {
         "horizon": horizon,
         "val_samples": n - split,
         "val_mae": round(val_mae, 4),
         "persist_mae": round(persist_mae, 4),
         "skill": round(skill, 4) if skill is not None else None,
     }
+    if collect:
+        out["pred"] = [float(v) for v in pred]
+        out["actual"] = [float(v) for v in y[split:]]
+    return out
+
+
+def forecast_xgb(
+    candles: list[dict],
+    horizons: tuple[int, ...] = (1, 3, 7, 14, 30),
+    lags: int = DEFAULT_LAGS,
+    params: dict | None = None,
+    days: int | None = None,
+) -> dict:
+    """현재 시점에서 horizon별 FOMO Score 예측 (전체 데이터로 학습 후 최신 피처 예측)."""
+    days = days if days is not None else len(candles)
+    fm = build_feature_matrix(candles, days=days)
+    scores = [item["score"] for item in fm["series"]]
+    latest = np.asarray([_features_at(fm["matrix"], scores, len(scores) - 1, lags)], dtype=float)
+
+    points = []
+    for h in sorted(set(horizons)):
+        X, y, _ = _xgb_supervised(candles, lags, h, days)
+        model = _new_model() if params is None else XGBRegressor(random_state=RANDOM_STATE, **params)
+        model.fit(X, y)
+        pred = float(np.clip(model.predict(latest)[0], 0.0, 100.0))
+        points.append({"horizon": h, "predicted_score": round(pred, 2)})
+    return {"current_score": round(float(scores[-1]), 2), "horizons": points}
 
 
 def run_xgb(

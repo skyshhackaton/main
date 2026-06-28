@@ -92,6 +92,7 @@ def train_lstm(
     dropout: float = DEFAULT_DROPOUT,
     epochs: int = DEFAULT_EPOCHS,
     lr: float = DEFAULT_LR,
+    collect: bool = False,
 ) -> dict:
     """train/val 분리로 LSTM 학습 후 검증 MAE와 persistence baseline 비교."""
     if window < 2:
@@ -138,7 +139,7 @@ def train_lstm(
     skill = 1.0 - lstm_mae / persist_mae if persist_mae > 0 else None
     n_params = sum(p.numel() for p in model.parameters())
 
-    return {
+    out = {
         "horizon": horizon,
         "window": window,
         "hidden": hidden,
@@ -153,6 +154,44 @@ def train_lstm(
         "persist_mae": round(persist_mae, 4),
         "skill": round(skill, 4) if skill is not None else None,
     }
+    if collect:
+        out["pred"] = [float(v) for v in pred]
+        out["actual"] = [float(v) for v in actual]
+    return out
+
+
+def forecast_lstm(
+    scores: np.ndarray,
+    horizons: tuple[int, ...] = (1, 3, 7, 14, 30),
+    window: int = DEFAULT_WINDOW,
+    hidden: int = DEFAULT_HIDDEN,
+    input_dense: int = 32,
+    dropout: float = 0.1,
+    epochs: int = DEFAULT_EPOCHS,
+    lr: float = DEFAULT_LR,
+) -> dict:
+    """현재 시점에서 horizon별 FOMO Score 예측 (전체 시퀀스로 학습 후 최신 윈도 예측)."""
+    latest = torch.tensor((scores[-window:] / SCALE), dtype=torch.float32).reshape(1, window, 1)
+    points = []
+    for h in sorted(set(horizons)):
+        torch.manual_seed(SEED)
+        np.random.seed(SEED)
+        X, y, _ = build_sequences(scores, window, h)
+        Xt = torch.tensor(X / SCALE, dtype=torch.float32).unsqueeze(-1)
+        yt = torch.tensor(y / SCALE, dtype=torch.float32)
+        model = LSTMRegressor(hidden=hidden, input_dense=input_dense, dropout=dropout)
+        opt = torch.optim.Adam(model.parameters(), lr=lr)
+        loss_fn = nn.MSELoss()
+        model.train()
+        for _ in range(epochs):
+            opt.zero_grad()
+            loss_fn(model(Xt), yt).backward()
+            opt.step()
+        model.eval()
+        with torch.no_grad():
+            pred = float(np.clip(model(latest).item() * SCALE, 0.0, 100.0))
+        points.append({"horizon": h, "predicted_score": round(pred, 2)})
+    return {"current_score": round(float(scores[-1]), 2), "horizons": points}
 
 
 def tune_lstm(
