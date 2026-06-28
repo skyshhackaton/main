@@ -70,7 +70,11 @@ def _require_non_negative_number(name: str, value: float) -> None:
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "fomo-break-api"}
+    return {
+        "status": "ok",
+        "service": "fomo-break-api",
+        "disclaimer": DISCLAIMER,
+    }
 
 
 @app.get("/api/fomo-score")

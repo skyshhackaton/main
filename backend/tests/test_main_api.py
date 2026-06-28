@@ -26,6 +26,16 @@ def _make_candles(length: int = 430) -> list[dict]:
     return candles
 
 
+def test_health_endpoint_includes_disclaimer():
+    response = client.get("/api/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["service"] == "fomo-break-api"
+    assert "투자 추천" in data["disclaimer"]
+
+
 def test_historical_mirror_endpoint(monkeypatch):
     monkeypatch.setattr(main, "load_candles", lambda market: _make_candles())
 
