@@ -30,6 +30,8 @@ from app.historical_mirror import (
 )
 
 FEATURE_NAMES = ("fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14")
+KNN_METHOD = "feature_knn"
+KNN_METHOD_LABEL = "피처 유사도"
 RSI_PERIOD = 14
 VOLUME_SHORT = 5
 VOLUME_LONG = 20
@@ -165,6 +167,9 @@ def build_knn_mirror(
         "current_date": current["date"],
         "current_score": round(target_score, 2),
         "current_grade": current["grade"],
+        "method": KNN_METHOD,
+        "method_label": KNN_METHOD_LABEL,
+        "comparison_basis": list(FEATURE_NAMES),
         "n_neighbors": k,
         "features": list(FEATURE_NAMES),
         "similar_periods": matches,

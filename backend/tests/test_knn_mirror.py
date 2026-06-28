@@ -87,6 +87,9 @@ def test_build_knn_mirror_structure_matches_historical_mirror():
         assert key in knn
 
     assert knn["n_neighbors"] == 5
+    assert knn["method"] == "feature_knn"
+    assert knn["method_label"] == "피처 유사도"
+    assert knn["comparison_basis"] == list(FEATURE_NAMES)
     assert len(knn["similar_periods"]) == 5
     assert list(knn["features"]) == list(FEATURE_NAMES)
 

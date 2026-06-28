@@ -43,6 +43,9 @@ KNN Mirror 응답은 Historical Mirror와 1:1 비교 가능해야 합니다.
   "current_date": "2026-06-28T00:00:00",
   "current_score": 73.2,
   "current_grade": "탐욕",
+  "method": "feature_knn",
+  "method_label": "피처 유사도",
+  "comparison_basis": ["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"],
   "similar_periods": [
     {
       "date": "2025-11-09T00:00:00",
@@ -69,9 +72,19 @@ KNN Mirror 응답은 Historical Mirror와 1:1 비교 가능해야 합니다.
 
 KNN 전용 추가 필드:
 
+- `method`: `feature_knn`
+- `method_label`: `피처 유사도`
+- `comparison_basis`: `["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"]`
 - `n_neighbors`: 실제 사용한 이웃 수
 - `features`: `["fomo_score", "change_rate_1d", "volume_ratio_5_20", "rsi_14"]`
 - `similar_periods[].distance`: 표준화된 피처 공간에서의 거리
+
+Historical Mirror 전용 필드는 다음 기준으로 맞춥니다.
+
+- `method`: `score_tolerance`
+- `method_label`: `조건 매칭`
+- `comparison_basis`: `["fomo_score"]`
+- `tolerance`: 현재 점수와 유사하다고 볼 점수 범위
 
 ## MVP Integration
 
