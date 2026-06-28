@@ -31,6 +31,7 @@ CSV_COLUMNS = [
     "trade_price",
     "source",
     "crawled_at",
+    "run_id",
 ]
 
 
@@ -40,8 +41,28 @@ def _utc_to_kst(date_utc: str) -> str:
     return dt.astimezone(KST).strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _now_utc_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _run_id_from_dt(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%Y%m%d_%H%M")
+
+
+def _run_id_from_crawled_at(crawled_at: str) -> str:
+    dt = datetime.fromisoformat(crawled_at.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return _run_id_from_dt(dt)
+
+
+def _build_export_metadata(
+    crawled_at: str | None = None,
+    run_id: str | None = None,
+) -> tuple[str, str]:
+    if crawled_at is None:
+        now = datetime.now(timezone.utc)
+        crawled_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        default_run_id = _run_id_from_dt(now)
+    else:
+        default_run_id = _run_id_from_crawled_at(crawled_at)
+    return crawled_at, run_id or default_run_id
 
 
 def export_candles_csv(
@@ -49,10 +70,11 @@ def export_candles_csv(
     markets: list[str] | None = None,
     db_path: Path = DB_PATH,
     crawled_at: str | None = None,
+    run_id: str | None = None,
 ) -> dict[str, int]:
     """마켓별 캔들을 단일 CSV로 내보낸다. 반환: {market: row 수}."""
     markets = markets or DEFAULT_MARKETS
-    crawled_at = crawled_at or _now_utc_iso()
+    crawled_at, run_id = _build_export_metadata(crawled_at, run_id)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     counts: dict[str, int] = {}
@@ -76,6 +98,7 @@ def export_candles_csv(
                     "trade_price": close,  # Upbit에서 trade_price == 종가
                     "source": SOURCE,
                     "crawled_at": crawled_at,
+                    "run_id": run_id,
                 })
     return counts
 
@@ -84,10 +107,11 @@ def build_crawl_report(
     markets: list[str] | None = None,
     db_path: Path = DB_PATH,
     crawled_at: str | None = None,
+    run_id: str | None = None,
 ) -> dict:
     """QA용 검증 리포트 dict 생성."""
     markets = markets or DEFAULT_MARKETS
-    crawled_at = crawled_at or _now_utc_iso()
+    crawled_at, run_id = _build_export_metadata(crawled_at, run_id)
 
     per_market: dict[str, dict] = {}
     for market in markets:
@@ -100,6 +124,7 @@ def build_crawl_report(
 
     return {
         "crawled_at": crawled_at,
+        "run_id": run_id,
         "source": SOURCE,
         "markets": markets,
         "results": per_market,
@@ -110,17 +135,24 @@ def export_all(
     data_dir: Path,
     markets: list[str] | None = None,
     db_path: Path = DB_PATH,
+    timestamp: bool = False,
+    crawled_at: str | None = None,
+    run_id: str | None = None,
 ) -> dict:
     """CSV + crawl_report.json을 함께 내보낸다. 반환: 요약 dict."""
     markets = markets or DEFAULT_MARKETS
-    crawled_at = _now_utc_iso()
+    crawled_at, run_id = _build_export_metadata(crawled_at, run_id)
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    csv_path = data_dir / "upbit_candles_snapshot.csv"
-    report_path = data_dir / "crawl_report.json"
+    if timestamp:
+        csv_path = data_dir / f"upbit_candles_{run_id}.csv"
+        report_path = data_dir / f"crawl_report_{run_id}.json"
+    else:
+        csv_path = data_dir / "upbit_candles_snapshot.csv"
+        report_path = data_dir / "crawl_report.json"
 
-    counts = export_candles_csv(csv_path, markets, db_path, crawled_at)
-    report = build_crawl_report(markets, db_path, crawled_at)
+    counts = export_candles_csv(csv_path, markets, db_path, crawled_at, run_id)
+    report = build_crawl_report(markets, db_path, crawled_at, run_id)
     report_path.write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -129,6 +161,7 @@ def export_all(
         "csv_path": str(csv_path),
         "report_path": str(report_path),
         "csv_bytes": csv_path.stat().st_size,
+        "run_id": run_id,
         "counts": counts,
         "report": report,
     }
@@ -136,6 +169,7 @@ def export_all(
 
 def _format_summary(result: dict) -> str:
     lines = [
+        f"Run ID : {result['run_id']}",
         f"CSV    : {result['csv_path']} ({result['csv_bytes']:,} bytes)",
         f"Report : {result['report_path']}",
     ]
@@ -168,9 +202,16 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--out", default="data", help="출력 디렉터리 (기본: data)"
     )
+    parser.add_argument(
+        "--timestamp",
+        action="store_true",
+        help="upbit_candles_YYYYMMDD_HHMM.csv / crawl_report_YYYYMMDD_HHMM.json 생성",
+    )
     args = parser.parse_args(argv)
 
-    result = export_all(Path(args.out), args.markets, Path(args.db))
+    result = export_all(
+        Path(args.out), args.markets, Path(args.db), timestamp=args.timestamp
+    )
     print(_format_summary(result))
 
 

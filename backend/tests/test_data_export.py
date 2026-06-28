@@ -42,6 +42,7 @@ def test_export_csv_has_expected_columns_and_rows(tmp_path):
     assert rows[0]["trade_price"] == rows[0]["close"]
     assert rows[0]["source"] == "upbit"
     assert rows[0]["market"] == "KRW-BTC"
+    assert rows[0]["run_id"]
 
 
 def test_export_csv_date_kst_is_utc_plus_9(tmp_path):
@@ -79,6 +80,7 @@ def test_build_crawl_report_includes_validation(tmp_path):
 
     assert report["source"] == "upbit"
     assert report["markets"] == ["KRW-BTC"]
+    assert report["run_id"]
     btc = report["results"]["KRW-BTC"]
     assert btc["rows"] == 5
     assert btc["validation"]["ok"] is True
@@ -113,6 +115,38 @@ def test_export_all_writes_both_files(tmp_path):
     saved = json.loads(report_path.read_text(encoding="utf-8"))
     assert saved["results"]["KRW-BTC"]["rows"] == 4
     assert saved["source"] == "upbit"
+    assert saved["run_id"] == result["run_id"]
+
+
+def test_export_all_timestamp_writes_versioned_files_and_metadata(tmp_path):
+    db = tmp_path / "t.db"
+    _seed(db, "KRW-BTC", _dates(1, 2))
+    data_dir = tmp_path / "data"
+
+    result = data_export.export_all(
+        data_dir,
+        ["KRW-BTC"],
+        db,
+        timestamp=True,
+        crawled_at="2024-01-02T03:04:05Z",
+    )
+
+    csv_path = data_dir / "upbit_candles_20240102_0304.csv"
+    report_path = data_dir / "crawl_report_20240102_0304.json"
+    assert csv_path.exists()
+    assert report_path.exists()
+    assert result["csv_path"] == str(csv_path)
+    assert result["report_path"] == str(report_path)
+    assert result["run_id"] == "20240102_0304"
+
+    with csv_path.open(encoding="utf-8") as f:
+        row = next(csv.DictReader(f))
+    assert row["crawled_at"] == "2024-01-02T03:04:05Z"
+    assert row["run_id"] == "20240102_0304"
+
+    saved = json.loads(report_path.read_text(encoding="utf-8"))
+    assert saved["crawled_at"] == "2024-01-02T03:04:05Z"
+    assert saved["run_id"] == "20240102_0304"
 
 
 def test_export_empty_market_produces_header_only(tmp_path):
