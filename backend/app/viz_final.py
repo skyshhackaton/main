@@ -32,6 +32,7 @@ from app.train_common import (  # noqa: E402
     DEFAULT_CSV,
     DEFAULT_MARKET,
     DEFAULT_OUT,
+    DEFAULT_TRAIN_RATIO,
     fomo_scores,
     load_candles_from_csv,
 )
@@ -143,7 +144,11 @@ def generate(
     csv_path: Path = DEFAULT_CSV,
     market: str = DEFAULT_MARKET,
     out_dir: Path = DEFAULT_OUT,
+    train_ratio: float = DEFAULT_TRAIN_RATIO,
+    skip_knn: bool = False,
 ) -> dict:
+    """train_ratio = 학습 비율(나머지가 val). holdout=train_ratio, expanding=start_ratio 동일 적용.
+    skip_knn=True면 KNN 시나리오 그래프는 재생성하지 않는다(기존 파일 유지)."""
     from app.backtest_expanding import expanding_backtest_lstm, expanding_backtest_xgb
     from app.train_lstm import train_lstm
     from app.train_xgb import evaluate_xgb_holdout
@@ -156,24 +161,25 @@ def generate(
 
     # 1. KNN 향후 시나리오 (과거 패턴 기반)
     paths["knn"] = out_dir / "knn_forecast.png"
-    _knn_forecast(candles, scores, market, paths["knn"])
+    if not skip_knn:
+        _knn_forecast(candles, scores, market, paths["knn"])
 
     # --- holdout ---
     # XGB@14: 개별 그래프 + 앙상블(14d)에서 공용 재사용
-    dxh = evaluate_xgb_holdout(candles, BEST["xgb_holdout"], train_ratio=0.7, collect=True)
+    dxh = evaluate_xgb_holdout(candles, BEST["xgb_holdout"], train_ratio=train_ratio, collect=True)
     _stitched("XGB", COLOR["XGB"], scores, {"target_index": dxh["target_index"], "pred": dxh["pred"]},
               BEST["xgb_holdout"], dxh["skill"], "holdout(1회 학습)", market,
               out_dir / "xgb_stitched_holdout.png")
     paths["xgb_hold"] = out_dir / "xgb_stitched_holdout.png"
 
-    dlh = train_lstm(scores, horizon=BEST["lstm_holdout"], train_ratio=0.7, collect=True, **LSTM_CFG)
+    dlh = train_lstm(scores, horizon=BEST["lstm_holdout"], train_ratio=train_ratio, collect=True, **LSTM_CFG)
     _stitched("LSTM", COLOR["LSTM"], scores, {"target_index": dlh["target_index"], "pred": dlh["pred"]},
               BEST["lstm_holdout"], dlh["skill"], "holdout(1회 학습)", market,
               out_dir / "lstm_stitched_holdout.png")
     paths["lstm_hold"] = out_dir / "lstm_stitched_holdout.png"
 
     # 앙상블 holdout @14 = XGB@14(재사용) + LSTM@14 단순평균
-    dle = train_lstm(scores, horizon=ENS_HORIZON, train_ratio=0.7, collect=True, **LSTM_CFG)
+    dle = train_lstm(scores, horizon=ENS_HORIZON, train_ratio=train_ratio, collect=True, **LSTM_CFG)
     st, sk = _blend(dxh["target_index"], dxh["pred"], dle["target_index"], dle["pred"], scores, ENS_HORIZON)
     _stitched("앙상블 XGBoost+LSTM", COLOR["ENS"], scores, st, ENS_HORIZON, sk, "holdout(1회 학습)",
               market, out_dir / "ensemble_stitched_holdout.png")
@@ -181,18 +187,18 @@ def generate(
 
     # --- expanding (운영 백테스트) ---
     # XGB@14: 개별 그래프 + 앙상블(14d)에서 공용 재사용
-    rxe = expanding_backtest_xgb(candles, BEST["xgb_expanding"], collect=True)
+    rxe = expanding_backtest_xgb(candles, BEST["xgb_expanding"], start_ratio=train_ratio, collect=True)
     _stitched("XGB", COLOR["XGB"], scores, rxe["stitched"], BEST["xgb_expanding"], rxe["skill"],
               "expanding(운영)", market, out_dir / "xgb_stitched_expanding.png")
     paths["xgb_exp"] = out_dir / "xgb_stitched_expanding.png"
 
-    rle = expanding_backtest_lstm(scores, BEST["lstm_expanding"], collect=True)
+    rle = expanding_backtest_lstm(scores, BEST["lstm_expanding"], start_ratio=train_ratio, collect=True)
     _stitched("LSTM", COLOR["LSTM"], scores, rle["stitched"], BEST["lstm_expanding"], rle["skill"],
               "expanding(운영)", market, out_dir / "lstm_stitched_expanding.png")
     paths["lstm_exp"] = out_dir / "lstm_stitched_expanding.png"
 
     # 앙상블 expanding @14 = XGB@14(재사용) + LSTM@14 단순평균
-    rle14 = expanding_backtest_lstm(scores, ENS_HORIZON, collect=True)["stitched"]
+    rle14 = expanding_backtest_lstm(scores, ENS_HORIZON, start_ratio=train_ratio, collect=True)["stitched"]
     st, sk = _blend(rxe["stitched"]["target_index"], rxe["stitched"]["pred"],
                     rle14["target_index"], rle14["pred"], scores, ENS_HORIZON)
     _stitched("앙상블 XGBoost+LSTM", COLOR["ENS"], scores, st, ENS_HORIZON, sk, "expanding(운영)",
@@ -216,9 +222,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--csv", default=str(DEFAULT_CSV))
     parser.add_argument("--market", default=DEFAULT_MARKET)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
+    parser.add_argument("--train-ratio", type=float, default=DEFAULT_TRAIN_RATIO,
+                        help="학습 비율(나머지가 val). 예: 0.8 → val 20%%")
+    parser.add_argument("--skip-knn", action="store_true", help="KNN 시나리오 그래프 재생성 생략")
     args = parser.parse_args(argv)
 
-    paths = generate(Path(args.csv), args.market, Path(args.out))
+    paths = generate(Path(args.csv), args.market, Path(args.out),
+                     train_ratio=args.train_ratio, skip_knn=args.skip_knn)
     for key, path in paths.items():
         print(f"{key:10s} -> {path}")
 
