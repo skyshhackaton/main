@@ -290,6 +290,31 @@ button:disabled {
   background: #e9edf4;
 }
 
+.ticker-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+  margin: -4px 0 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.ticker-line strong.up {
+  color: var(--red);
+}
+
+.ticker-line strong.down {
+  color: var(--blue);
+}
+
+.ticker-line.muted {
+  justify-content: flex-start;
+  font-weight: 700;
+}
+
 .market-bar span {
   display: block;
   height: 100%;

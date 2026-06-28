@@ -1,4 +1,4 @@
-﻿"""Upbit public quotation API client.
+"""Upbit public quotation API client.
 
 MVP rule: use public endpoints only. Do not accept or store user API keys.
 """
@@ -29,23 +29,19 @@ async def _sleep_before_retry(attempt_index: int, backoff_seconds: float) -> Non
     await asyncio.sleep(backoff_seconds * (2 ** attempt_index))
 
 
-async def fetch_day_candles(
-    market: str,
-    count: int = 200,
-    to: str | None = None,
+async def _get_json_with_retry(
+    path: str,
+    params: dict,
     *,
     retry_attempts: int = DEFAULT_RETRY_ATTEMPTS,
     backoff_seconds: float = DEFAULT_BACKOFF_SECONDS,
-) -> list[dict]:
-    params: dict[str, str | int] = {"market": market, "count": count}
-    if to:
-        params["to"] = to
-
+) -> list | dict:
+    """GET an Upbit public endpoint with bounded retry/backoff."""
     attempts = max(1, retry_attempts)
     async with httpx.AsyncClient(base_url=UPBIT_BASE_URL, timeout=10.0) as client:
         for attempt in range(attempts):
             try:
-                response = await client.get("/candles/days", params=params)
+                response = await client.get(path, params=params)
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as exc:
@@ -61,6 +57,26 @@ async def fetch_day_candles(
                 raise
 
     raise RuntimeError("unreachable retry state")
+
+
+async def fetch_day_candles(
+    market: str,
+    count: int = 200,
+    to: str | None = None,
+    *,
+    retry_attempts: int = DEFAULT_RETRY_ATTEMPTS,
+    backoff_seconds: float = DEFAULT_BACKOFF_SECONDS,
+) -> list[dict]:
+    params: dict[str, str | int] = {"market": market, "count": count}
+    if to:
+        params["to"] = to
+
+    return await _get_json_with_retry(
+        "/candles/days",
+        params,
+        retry_attempts=retry_attempts,
+        backoff_seconds=backoff_seconds,
+    )
 
 
 async def fetch_all_candles(market: str = DEFAULT_MARKET, target: int = TARGET_COUNT) -> list[dict]:
@@ -81,6 +97,40 @@ async def fetch_all_candles(market: str = DEFAULT_MARKET, target: int = TARGET_C
 
     dedup = {c["candle_date_time_utc"]: c for c in collected}
     return sorted(dedup.values(), key=lambda c: c["candle_date_time_utc"])
+
+
+# ---------------------------------------------------------------------------
+# Ticker snapshot for display only
+# ---------------------------------------------------------------------------
+
+def normalize_ticker(raw: dict) -> dict:
+    """Normalize Upbit ticker output to the UI fields we display."""
+    return {
+        "market": raw["market"],
+        "trade_price": raw["trade_price"],
+        "signed_change_price": raw["signed_change_price"],
+        "signed_change_rate": raw["signed_change_rate"],
+        "acc_trade_volume_24h": raw["acc_trade_volume_24h"],
+        "acc_trade_price_24h": raw["acc_trade_price_24h"],
+        "timestamp": raw["timestamp"],
+    }
+
+
+async def fetch_tickers(
+    markets: list[str] | None = None,
+    *,
+    retry_attempts: int = DEFAULT_RETRY_ATTEMPTS,
+    backoff_seconds: float = DEFAULT_BACKOFF_SECONDS,
+) -> list[dict]:
+    """Fetch live public ticker snapshots for display, not for FOMO scoring."""
+    markets = markets or DEFAULT_MARKETS
+    raw = await _get_json_with_retry(
+        "/ticker",
+        {"markets": ",".join(markets)},
+        retry_attempts=retry_attempts,
+        backoff_seconds=backoff_seconds,
+    )
+    return [normalize_ticker(item) for item in raw]
 
 
 # ---------------------------------------------------------------------------
