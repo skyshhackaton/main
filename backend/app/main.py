@@ -21,6 +21,28 @@ app.add_middleware(
 
 DISCLAIMER = "본 지수는 시장 상태 관찰 도구이며 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
 HISTORY_DISCLAIMER = "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+DECISION_PAUSE_QUESTIONS = [
+    {
+        "id": "reason_check",
+        "category": "근거 확인",
+        "question": "지금 판단의 근거가 새 정보인지, 가격 변동에 대한 감정 반응인지 구분해보세요.",
+    },
+    {
+        "id": "late_attention",
+        "category": "관심 시점",
+        "question": "가격이 움직인 뒤에야 관심이 생긴 것은 아닌지 확인해보세요.",
+    },
+    {
+        "id": "risk_boundary",
+        "category": "위험 범위",
+        "question": "손실을 감당할 수 있는 범위와 판단을 바꿀 조건을 말로 설명할 수 있나요?",
+    },
+    {
+        "id": "time_horizon",
+        "category": "시간 기준",
+        "question": "이 판단이 단기 감정인지, 미리 정한 관찰 기간과 기준에 맞는지 점검해보세요.",
+    },
+]
 
 
 def _load_or_404(market: str) -> list[dict]:
@@ -57,6 +79,14 @@ def get_fomo_history(market: str = DEFAULT_MARKET, days: int = 200) -> dict:
         "days": days,
         "items": score_series(candles, days),
         "disclaimer": HISTORY_DISCLAIMER,
+    }
+
+
+@app.get("/api/decision-pause")
+def get_decision_pause() -> dict:
+    return {
+        "items": DECISION_PAUSE_QUESTIONS,
+        "disclaimer": DISCLAIMER,
     }
 
 

@@ -32,22 +32,20 @@ Response draft:
 ```json
 {
   "market": "KRW-BTC",
-  "fomo_score": 73.2,
+  "score": 73.2,
   "grade": "탐욕",
-  "grade_description": "매수 심리와 FOMO 조짐이 우세한 상태",
-  "components": {
-    "price_momentum": 68.0,
-    "price_strength": 82.0,
-    "market_breadth": 71.0,
-    "clv_pressure": 65.0,
-    "rsi": 74.0,
-    "volatility_inverse": 55.0,
-    "volume_momentum": 77.0,
-    "win_streak": 80.0
+  "description": "매수 심리와 FOMO 조짐이 우세한 상태",
+  "indicators": {
+    "X1": 68.0,
+    "X2": 82.0,
+    "X3": 71.0,
+    "X4": 65.0,
+    "X5": 74.0,
+    "X6": 55.0,
+    "X7": 77.0,
+    "X8": 80.0
   },
-  "current_price": 98500000,
-  "timestamp": "2026-06-28T12:00:00Z",
-  "disclaimer": "본 지수는 시장 상태 관찰 도구이며 투자 추천이 아닙니다."
+  "disclaimer": "본 지수는 시장 상태 관찰 도구이며 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
 }
 ```
 
@@ -70,11 +68,30 @@ Response draft:
   "items": [
     {
       "date": "2026-06-28",
-      "fomo_score": 73.2,
-      "grade": "탐욕"
+      "close": 98500000,
+      "score": 73.2,
+      "grade": "탐욕",
+      "description": "매수 심리와 FOMO 조짐이 우세한 상태"
     }
   ],
   "disclaimer": "과거 데이터는 참고용이며 미래 성과를 보장하지 않습니다."
+}
+```
+
+## GET /api/decision-pause
+
+투자 판단을 지시하지 않고 사용자가 근거와 감정 반응을 구분하도록 돕는 성찰 질문을 반환합니다.
+
+```json
+{
+  "items": [
+    {
+      "id": "reason_check",
+      "category": "근거 확인",
+      "question": "지금 판단의 근거가 새 정보인지, 가격 변동에 대한 감정 반응인지 구분해보세요."
+    }
+  ],
+  "disclaimer": "본 지수는 시장 상태 관찰 도구이며 투자 추천, 투자 자문, 수익 보장을 제공하지 않습니다."
 }
 ```
 
