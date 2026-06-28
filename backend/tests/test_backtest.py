@@ -54,6 +54,9 @@ def test_sensitivity_analysis_returns_nine_combinations():
     assert len(rows) == 9
     assert all(row["weight_sum"] == pytest.approx(1.0) for row in rows)
     assert len(format_sensitivity_table(rows).splitlines()) == 11
+    assert all(len(row["buckets"]) == 5 for row in rows)
+    assert all(row["score_summary"]["min"] <= row["score_summary"]["mean"] <= row["score_summary"]["max"] for row in rows)
+    assert all(sum(bucket["sample_count"] for bucket in row["buckets"]) == 193 for row in rows)
 
 
 def test_future_mutation_does_not_change_past_scores():

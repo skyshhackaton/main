@@ -105,6 +105,11 @@ def evaluate_weights(
         "horizon": horizon,
         "weights": asdict(weights),
         "series_count": len(series),
+        "score_summary": {
+            "mean": _mean([float(item["score"]) for item in series]),
+            "min": min((float(item["score"]) for item in series), default=None),
+            "max": max((float(item["score"]) for item in series), default=None),
+        },
         "evaluated_count": sum(row["sample_count"] for row in buckets),
         "buckets": buckets,
         "high_greed_report": {
@@ -149,6 +154,8 @@ def sensitivity_analysis(
                 "x7": x7,
                 "x8": x8,
                 "weight_sum": sum(asdict(weights).values()),
+                "score_summary": result["score_summary"],
+                "buckets": result["buckets"],
                 "high_greed_sample_count": report["sample_count"],
                 "high_greed_mean_7d_return": report["mean_7d_return"],
                 "high_greed_positive_rate": report["positive_rate"],
@@ -161,17 +168,16 @@ def sensitivity_analysis(
 def format_sensitivity_table(rows: list[dict]) -> str:
     """Render sensitivity results as a presentation-ready Markdown table."""
     lines = [
-        "| X7 | X8 | 80+ samples | mean 7d return | positive rate | finding |",
-        "|---:|---:|---:|---:|---:|---|",
+        "| X7 | X8 | score mean | score range | 0-20 | 20-40 | 40-60 | 60-80 | 80-100 |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
-        mean_return = row["high_greed_mean_7d_return"]
-        positive_rate = row["high_greed_positive_rate"]
-        mean_text = "N/A" if mean_return is None else f"{mean_return:.2%}"
-        rate_text = "N/A" if positive_rate is None else f"{positive_rate:.2%}"
+        summary = row["score_summary"]
+        counts = {item["bucket"]: item["sample_count"] for item in row["buckets"]}
         lines.append(
             f"| {row['x7']:.2f} | {row['x8']:.2f} | "
-            f"{row['high_greed_sample_count']} | {mean_text} | {rate_text} | "
-            f"{row['finding']} |"
+            f"{summary['mean']:.2f} | {summary['min']:.2f}~{summary['max']:.2f} | "
+            f"{counts['0-20']} | {counts['20-40']} | {counts['40-60']} | "
+            f"{counts['60-80']} | {counts['80-100']} |"
         )
     return "\n".join(lines)
