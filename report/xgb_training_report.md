@@ -1,26 +1,9 @@
-# KNN k 최적화 & XGBoost FOMO 학습 리포트
+# XGBoost FOMO 학습 리포트
 
-- market: `KRW-BTC`
-- candles: 2200 (scored: 1835)
+- market: `KRW-BTC`  ·  candles: 2200 (scored: 1835)
 - 입력: `C:\Users\juwon\Desktop\skysh-2026-hackaton\data\upbit_candles_history.csv`
 
-## 1. KNN k 최적화 (horizon=1d, FOMO Score 예측)
-피처: fomo_score, change_rate_1d, volume_ratio_5_20, rsi_14 · StandardScaler · TimeSeriesSplit(5)
-표본: 1834 · **최적 k = 11** (CV MAE=4.424)
-
-| k | CV MAE | CV RMSE |
-|---:|---:|---:|
-| 3 | 4.7037 | 5.9353 |
-| 5 | 4.512 | 5.7095 |
-| 7 | 4.4591 | 5.6078 |
-| 9 | 4.4281 | 5.5738 |
-| 11 (best) | 4.424 | 5.5751 |
-| 13 | 4.4272 | 5.5788 |
-| 15 | 4.4587 | 5.6036 |
-| 17 | 4.4696 | 5.6157 |
-| 19 | 4.5028 | 5.6529 |
-
-## 2. XGBoost FOMO 학습 (XGBRegressor (per-horizon direct forecast))
+## 1. 고정 파라미터 학습 (XGBRegressor (per-horizon direct forecast))
 lags=5 · TimeSeriesSplit(5)
 
 | horizon | samples | CV MAE | CV RMSE | baseline(유지) MAE |
@@ -29,7 +12,7 @@ lags=5 · TimeSeriesSplit(5)
 | 3d | 1828 | 6.6573 | 8.4577 | 6.9794 |
 | 7d | 1824 | 8.8007 | 11.2933 | 9.6897 |
 
-## 3. XGBoost 하이퍼파라미터 튜닝 (XGBRegressor (grid-tuned), 24 combos)
+## 2. 하이퍼파라미터 튜닝 (XGBRegressor (grid-tuned), 24 combos)
 lags=5 · TimeSeriesSplit(5) · grid CV로 horizon별 최고 설정
 
 | horizon | CV MAE | CV RMSE | baseline MAE | skill | best params |
