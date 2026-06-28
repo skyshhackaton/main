@@ -333,7 +333,7 @@ def validate_holdout(
 
     pool = mat[: pool_max_r + 1]  # train-only 후보 (고정)
     analog_abs, persist_abs = [], []
-    pred_h, actual_h, samples = [], [], []
+    pred_h, actual_h, target_index, samples = [], [], [], []
 
     origins = list(range(first_t, last_t + 1))
     sample_at = set(np.linspace(0, len(origins) - 1, min(8, len(origins))).astype(int).tolist())
@@ -356,6 +356,7 @@ def validate_holdout(
         persist_abs.append(np.abs(current - actual))
         pred_h.append(float(pred[-1]))
         actual_h.append(float(actual[-1]))
+        target_index.append(t + horizon)
         if collect and oi in sample_at:
             samples.append({"origin_index": t, "pred": [float(v) for v in pred],
                             "actual": [float(v) for v in actual]})
@@ -381,6 +382,7 @@ def validate_holdout(
         }
         result["samples"] = samples
         result["scatter"] = {"pred_h": pred_h, "actual_h": actual_h}
+        result["stitched"] = {"target_index": target_index, "pred": pred_h, "actual": actual_h}
     return result
 
 

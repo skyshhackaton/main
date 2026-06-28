@@ -219,8 +219,11 @@ def evaluate_xgb_holdout(
         "skill": round(skill, 4) if skill is not None else None,
     }
     if collect:
+        # 샘플 k의 target 시점 인덱스 = (lags-1) + k + horizon  (FOMO score 시계열 기준)
+        target_index = [(lags - 1) + k + horizon for k in range(split, n)]
         out["pred"] = [float(v) for v in pred]
         out["actual"] = [float(v) for v in y[split:]]
+        out["target_index"] = target_index
     return out
 
 

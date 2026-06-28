@@ -155,8 +155,10 @@ def train_lstm(
         "skill": round(skill, 4) if skill is not None else None,
     }
     if collect:
+        # target 시점 인덱스 = 입력 시퀀스 끝(end) + horizon (FOMO score 시계열 기준)
         out["pred"] = [float(v) for v in pred]
         out["actual"] = [float(v) for v in actual]
+        out["target_index"] = [int(e) + horizon for e in ends[split:]]
     return out
 
 
