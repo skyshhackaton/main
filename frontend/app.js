@@ -292,6 +292,7 @@ function renderDemoStage() {
   const score = Number(current?.score);
   const grade = current?.grade || "데이터 대기";
   const mirrorCount = state.overview?.historical_mirror?.similar_periods?.length || 0;
+  const topMirror = state.overview?.historical_mirror?.similar_periods?.[0];
   const forecastItems = state.forecast?.forecast || [];
   const longest = forecastItems[forecastItems.length - 1];
   const ticker = tickerForMarket(state.market);
@@ -318,6 +319,45 @@ function renderDemoStage() {
     <p>${escapeHtml(activeScript.copy)}</p>
   `;
   updateDemoProgress(state.demoStartedAt ? Date.now() - state.demoStartedAt : 0);
+
+  $("observationConsole").innerHTML = `
+    <div class="observation-head">
+      <div>
+        <span>PUBLIC DATA OBSERVATION</span>
+        <strong>${escapeHtml(state.market)}</strong>
+      </div>
+      <em>실시간 주문 화면이 아닌 관찰 화면</em>
+    </div>
+    <div class="observation-main">
+      <div class="observation-score">
+        <span>FOMO Score</span>
+        <strong>${Number.isFinite(score) ? formatScore(score) : "--"}</strong>
+        <p>${escapeHtml(grade)}</p>
+      </div>
+      <div class="observation-price">
+        <span>표시용 현재가</span>
+        <strong>${ticker ? `${formatKrw(ticker.trade_price)} KRW` : "불러오는 중"}</strong>
+        <p>${ticker ? formatSignedPercent(ticker.signed_change_rate) : "Upbit 공개 ticker"}</p>
+      </div>
+    </div>
+    <div class="observation-grid">
+      <div>
+        <span>과거 참고 사례</span>
+        <strong>${topMirror ? escapeHtml(topMirror.date) : "표본 확인 중"}</strong>
+        <p>${topMirror ? `${formatScore(Number(topMirror.score))} · ${escapeHtml(topMirror.grade)}` : `${mirrorCount}개 유사 구간`}</p>
+      </div>
+      <div>
+        <span>오차 범위</span>
+        <strong>${longest ? `±${formatScore(Number(longest.error_band))}` : "확인 중"}</strong>
+        <p>${longest ? escapeHtml(longest.trend_label) : "방향 단정 없음"}</p>
+      </div>
+      <div>
+        <span>자기 점검</span>
+        <strong>${pauseCount}/${PAUSE_CHECKS.length}</strong>
+        <p>정보와 감정 분리</p>
+      </div>
+    </div>
+  `;
 
   $("demoFlow").innerHTML = DEMO_FLOW.map(
     ([title, copy], index) => `
