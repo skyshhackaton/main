@@ -18,6 +18,14 @@ from .fomo_score import FomoWeights, WEIGHTS
 
 DEFAULT_SNAPSHOT_PATH = Path(__file__).resolve().parents[2] / "data" / "upbit_candles_snapshot.csv"
 DEFAULT_MARKETS = ("KRW-BTC", "KRW-ETH", "KRW-XRP")
+RESCALED_WEIGHT_FIELDS = (
+    "price_momentum",
+    "price_strength",
+    "market_breadth",
+    "clv_pressure",
+    "rsi",
+    "volatility_inverse",
+)
 
 BUCKETS = (
     (0.0, 20.0, "0-20"),
@@ -93,6 +101,13 @@ def _score_series_with_weights(
     candles: list[dict], days: int, weights: FomoWeights
 ) -> list[dict]:
     """Build a score series without mutating the production global weights."""
+    if days <= 0:
+        raise ValueError("days must be positive")
+    if len(candles) <= fomo_score.MIN_WINDOW:
+        raise ValueError(
+            f"at least {fomo_score.MIN_WINDOW + 1} candles are required"
+        )
+
     weight_values = asdict(weights)
     indicator_weights = {
         "X1": weight_values["price_momentum"],
@@ -152,21 +167,25 @@ def evaluate_weights(
     buckets = []
     for _, _, label in BUCKETS:
         returns = grouped[label]
-        buckets.append(
-            {
-                "bucket": label,
-                "sample_count": len(returns),
-                "mean_7d_return": _mean(returns),
-                "positive_rate": (
-                    sum(value > 0 for value in returns) / len(returns)
-                    if returns
-                    else None
-                ),
-            }
-        )
+        mean_return = _mean(returns)
+        row = {
+            "bucket": label,
+            "sample_count": len(returns),
+            "mean_forward_return": mean_return,
+            "positive_rate": (
+                sum(value > 0 for value in returns) / len(returns)
+                if returns
+                else None
+            ),
+        }
+        # Preserve the original default-horizon contract without attaching a
+        # misleading 7-day label to custom-horizon results.
+        if horizon == 7:
+            row["mean_7d_return"] = mean_return
+        buckets.append(row)
 
     high_greed = next(row for row in buckets if row["bucket"] == "80-100")
-    mean_return = high_greed["mean_7d_return"]
+    mean_return = high_greed["mean_forward_return"]
     if mean_return is None:
         finding = "insufficient_data"
     elif mean_return < 0:
@@ -189,8 +208,9 @@ def evaluate_weights(
         "high_greed_report": {
             "finding": finding,
             "sample_count": high_greed["sample_count"],
-            "mean_7d_return": mean_return,
+            "mean_forward_return": mean_return,
             "positive_rate": high_greed["positive_rate"],
+            **({"mean_7d_return": mean_return} if horizon == 7 else {}),
         },
     }
 
@@ -201,10 +221,9 @@ def weights_for_sensitivity(x7: float, x8: float) -> FomoWeights:
         raise ValueError("X7 and X8 must be non-negative and sum to less than 1")
 
     base = asdict(WEIGHTS)
-    fixed_names = tuple(base)[:6]
-    fixed_total = sum(base[name] for name in fixed_names)
+    fixed_total = sum(base[name] for name in RESCALED_WEIGHT_FIELDS)
     scale = (1.0 - x7 - x8) / fixed_total
-    values = {name: base[name] * scale for name in fixed_names}
+    values = {name: base[name] * scale for name in RESCALED_WEIGHT_FIELDS}
     values["volume_momentum"] = x7
     values["win_streak"] = x8
     return FomoWeights(**values)
@@ -231,9 +250,14 @@ def sensitivity_analysis(
                 "score_summary": result["score_summary"],
                 "buckets": result["buckets"],
                 "high_greed_sample_count": report["sample_count"],
-                "high_greed_mean_7d_return": report["mean_7d_return"],
+                "high_greed_mean_forward_return": report["mean_forward_return"],
                 "high_greed_positive_rate": report["positive_rate"],
                 "finding": report["finding"],
+                **(
+                    {"high_greed_mean_7d_return": report["mean_7d_return"]}
+                    if horizon == 7
+                    else {}
+                ),
             }
         )
     return rows
@@ -249,7 +273,7 @@ def format_sensitivity_table(rows: list[dict]) -> str:
 
     def format_bucket(item: dict) -> str:
         count = item["sample_count"]
-        mean_return = item["mean_7d_return"]
+        mean_return = item["mean_forward_return"]
         positive_rate = item["positive_rate"]
         if mean_return is None or positive_rate is None:
             return f"{count} / N/A / N/A"

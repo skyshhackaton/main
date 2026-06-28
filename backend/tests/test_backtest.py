@@ -44,6 +44,34 @@ def test_bucket_statistics_have_valid_rates():
             assert 0.0 <= row["positive_rate"] <= 1.0
 
 
+@pytest.mark.parametrize("days", [0, -1])
+def test_evaluate_weights_rejects_non_positive_days(days):
+    with pytest.raises(ValueError, match="days must be positive"):
+        evaluate_weights(_candles(), days=days)
+
+
+def test_evaluate_weights_rejects_insufficient_candles():
+    with pytest.raises(ValueError, match="at least 366 candles"):
+        evaluate_weights(_candles(365))
+
+
+def test_custom_horizon_uses_generic_return_name():
+    result = evaluate_weights(_candles(), horizon=3)
+    assert result["horizon"] == 3
+    assert all("mean_forward_return" in row for row in result["buckets"])
+    assert all("mean_7d_return" not in row for row in result["buckets"])
+    assert "mean_forward_return" in result["high_greed_report"]
+    assert "mean_7d_return" not in result["high_greed_report"]
+
+
+def test_default_horizon_keeps_seven_day_compatibility_name():
+    result = evaluate_weights(_candles(), horizon=7)
+    assert all(
+        row["mean_7d_return"] == row["mean_forward_return"]
+        for row in result["buckets"]
+    )
+
+
 @pytest.mark.parametrize("x7,x8", [(0.15, 0.15), (0.20, 0.20), (0.25, 0.25)])
 def test_sensitivity_weights_always_sum_to_one(x7, x8):
     weights = weights_for_sensitivity(x7, x8)
@@ -94,6 +122,24 @@ def test_future_mutation_does_not_change_past_scores():
     changed[-1]["close"] *= 100
     after = score_series(changed, days=200)
     assert [row["score"] for row in before[:-1]] == [row["score"] for row in after[:-1]]
+
+
+@pytest.mark.parametrize("future_offset", [25, 75, 150])
+def test_suffix_mutation_does_not_change_earlier_scores(future_offset):
+    candles = _candles()
+    from app.fomo_score import score_series
+
+    before = score_series(candles, days=200)
+    changed = [dict(candle) for candle in candles]
+    series_start = len(candles) - len(before)
+    mutation_index = series_start + future_offset
+    for candle in changed[mutation_index:]:
+        candle["close"] *= 10
+
+    after = score_series(changed, days=200)
+    assert [row["score"] for row in before[:future_offset]] == [
+        row["score"] for row in after[:future_offset]
+    ]
 
 
 def test_official_snapshot_contains_three_oldest_first_markets():
