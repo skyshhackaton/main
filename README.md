@@ -379,6 +379,8 @@ MVP 첫 화면에 필요한 현재 점수, 히스토리, Historical Mirror, Deci
 - [제품 요약](docs/product-brief.md)
 - [FOMO Score 산식](docs/fomo-score-spec.md)
 - [API 설계](docs/api-design.md)
+- [데이터 핸드오프](docs/data-handoff.md)
+- [KNN Mirror 연동 계약](docs/knn-integration-contract.md)
 - [규정/보안 체크](docs/compliance.md)
 - [팀 협업 방식](docs/team-workflow.md)
 
