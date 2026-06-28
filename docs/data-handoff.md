@@ -56,13 +56,13 @@ Historical Mirror, KNN Mirror, backtest 입력으로 쓸 때는 기존 공통 �
 
 | market | rows | first_date_utc | last_date_utc | validation |
 |---|---:|---|---|---|
-| KRW-BTC | 565 | 2024-12-11T00:00:00 | 2026-06-28T00:00:00 | OK |
-| KRW-ETH | 565 | 2024-12-11T00:00:00 | 2026-06-28T00:00:00 | OK |
-| KRW-XRP | 565 | 2024-12-11T00:00:00 | 2026-06-28T00:00:00 | OK |
+| KRW-BTC | 2200 | 2020-06-20T00:00:00 | 2026-06-28T00:00:00 | OK |
+| KRW-ETH | 2200 | 2020-06-20T00:00:00 | 2026-06-28T00:00:00 | OK |
+| KRW-XRP | 2200 | 2020-06-20T00:00:00 | 2026-06-28T00:00:00 | OK |
 
 QA 리포트 기준:
 
-- `run_id`: `20260628_0417`
+- `run_id`: `20260628_0434`
 - `missing_dates`: 0
 - `duplicate_dates`: 0
 - `ohlc_errors`: 0
