@@ -347,8 +347,11 @@ function renderDemoStage() {
   const readinessInfo = state.overview?.current ? computeReadiness() : null;
   const readinessValue = readinessInfo ? Math.round(readinessInfo.readiness) : "--";
   const readinessTone = readinessInfo?.tone || "neutral";
+  const completedPause = pauseCount === PAUSE_CHECKS.length;
+  const flowFinished = completedPause || state.demoStep >= 4;
+  const pauseActive = state.demoStep >= 3 || Boolean(virtualLog) || pauseCount > 0;
   const activeFlowStep =
-    pauseCount === PAUSE_CHECKS.length ? 3 : state.demoStep >= 3 || virtualLog || pauseCount > 0 ? 2 : isAttempt ? 1 : 0;
+    flowFinished ? 3 : pauseActive ? 2 : isAttempt ? 1 : 0;
   const flowSteps = [
     ["1", "행동 선택", "가상 행동과 수량"],
     ["2", "데이터 확인", "공개 데이터만 사용"],
@@ -369,7 +372,7 @@ function renderDemoStage() {
   $("terminalCopy").textContent = mode.terminalCopy;
   document
     .querySelector(".pause-preview")
-    ?.classList.toggle("active", state.demoStep >= 3);
+    ?.classList.toggle("active", pauseActive);
 
   document.querySelectorAll("[data-intent-mode]").forEach((button) => {
     button.classList.toggle("active", button.getAttribute("data-intent-mode") === state.intentMode);
@@ -413,12 +416,12 @@ function renderDemoStage() {
     <div class="attempt-body">
       <button class="attempt-card buy ${isBuy ? "active" : ""}" type="button" data-intent-mode="buy">
         <span>가상 매수</span>
-        <strong>${isBuy ? "선택됨" : "선택하기"}</strong>
+        <strong>${isBuy ? "매수 입력 중" : "매수"}</strong>
         <small>수량 입력 후 점검으로 이동</small>
       </button>
       <button class="attempt-card sell ${isSell ? "active" : ""}" type="button" data-intent-mode="sell">
         <span>가상 매도</span>
-        <strong>${isSell ? "선택됨" : "선택하기"}</strong>
+        <strong>${isSell ? "매도 입력 중" : "매도"}</strong>
         <small>전송 없이 차단 상태 확인</small>
       </button>
     </div>
@@ -486,6 +489,11 @@ function renderDemoStage() {
     ticketMode === "observe"
       ? "가상 행동 선택 후 점검으로 이동합니다."
       : "주문 API와 API Key 입력 없이 차단 상태를 보여줍니다.";
+  const routeState = virtualLog
+    ? ["차단 로그 기록", "Decision Pause 진행 중"]
+    : isAttempt
+      ? ["가상 행동 감지", "주문 대신 점검으로 이동"]
+      : ["행동 대기", "가상 매수 또는 매도를 먼저 선택"];
   $("intentTicket").className = `intent-ticket ${mode.tone}`;
   $("intentTicket").innerHTML = `
     <div class="ticket-head">
@@ -499,9 +507,13 @@ function renderDemoStage() {
       <div><span>선택</span><strong>${escapeHtml(ticketLabel)}</strong></div>
       <div><span>API Key</span><strong>없음</strong></div>
     </div>
+    <div class="route-state ${isAttempt || virtualLog ? "active" : ""}">
+      <span>${escapeHtml(routeState[0])}</span>
+      <strong>${escapeHtml(routeState[1])}</strong>
+    </div>
     <p>${escapeHtml(ticketCopy)}</p>
-    <button class="blocked-submit ${isAttempt ? mode.tone : "neutral"}" type="button" data-open-pause>
-      점검 시작
+    <button class="blocked-submit ${isAttempt ? mode.tone : "neutral"}" type="button" data-open-pause ${isAttempt ? "" : "disabled"}>
+      ${isAttempt ? "Decision Pause로 이동" : "행동 선택 후 이동"}
     </button>
   `;
   document.querySelector(".pause-live-status")?.remove();
@@ -509,11 +521,13 @@ function renderDemoStage() {
     "beforebegin",
     `
       <div class="pause-live-status ${readinessTone}" style="--ready:${Number.isFinite(Number(readinessValue)) ? Math.max(0, Math.min(100, Number(readinessValue))) : 0}%">
-        <div>
-          <span>판단 준비도</span>
+        <div class="readiness-ring" aria-label="판단 준비도 ${escapeHtml(String(readinessValue))}점">
           <strong>${escapeHtml(String(readinessValue))}</strong>
         </div>
-        <p>체크 ${pauseCount}/${PAUSE_CHECKS.length} · 준비도 반영</p>
+        <div class="readiness-status-copy">
+          <span>판단 준비도</span>
+          <p>체크 ${pauseCount}/${PAUSE_CHECKS.length} · 준비도 반영</p>
+        </div>
         <div class="pause-progress" aria-hidden="true">
           <span style="width:${(pauseCount / PAUSE_CHECKS.length) * 100}%"></span>
         </div>
@@ -525,8 +539,8 @@ function renderDemoStage() {
       <span>3단계 · ${pauseSlideIndex + 1} / ${PAUSE_CHECKS.length}</span>
       <strong>${escapeHtml(activePause.title)}</strong>
       <p>${escapeHtml(activePause.copy)}</p>
-      <button class="slide-check" type="button" data-check-id="${escapeHtml(activePause.id)}" aria-pressed="${state.pauseChecks[activePause.id]}">
-        ${state.pauseChecks[activePause.id] ? "확인됨" : "확인하기"}
+      <button class="slide-check" type="button" data-check-id="${escapeHtml(activePause.id)}" aria-pressed="${state.pauseChecks[activePause.id]}" ${pauseActive ? "" : "disabled"}>
+        ${pauseActive ? (state.pauseChecks[activePause.id] ? "확인 완료" : "확인") : "점검 시작 후 확인"}
       </button>
     </div>
     <div class="pause-slide-controls" aria-label="Decision Pause 슬라이드 이동">
@@ -545,6 +559,28 @@ function renderDemoStage() {
       </div>
       <button type="button" data-pause-nav="1" ${pauseSlideIndex === PAUSE_CHECKS.length - 1 ? "disabled" : ""}>다음</button>
     </div>
+    <button class="finish-check" type="button" data-finish-check ${pauseActive ? "" : "disabled"}>
+      ${pauseActive ? (completedPause ? "판단 근거 정리 보기" : "점검 마침") : "Decision Pause 대기"}
+    </button>
+  `;
+
+  const resultTitle = completedPause ? "자가점검 완료" : flowFinished ? "점검 종료" : "판단 근거 정리";
+  const resultCopy = completedPause
+    ? "4개 문항을 모두 확인했습니다. 세부 지표와 과거 참고 사례는 보고서에서 이어서 확인합니다."
+    : flowFinished
+      ? `${pauseCount}/${PAUSE_CHECKS.length}개 문항을 확인했습니다. 결론을 서두르지 않고 보고서에서 근거를 다시 봅니다.`
+      : "가상 행동과 공개 데이터를 확인한 뒤 이 영역에 마지막 정리가 표시됩니다.";
+  const resultMode = completedPause || flowFinished ? "active" : "";
+  $("decisionResult").className = `decision-result ${resultMode}`;
+  $("decisionResult").innerHTML = `
+    <div class="result-head">
+      <span>4단계</span>
+      <strong>${escapeHtml(resultTitle)}</strong>
+    </div>
+    <p>${escapeHtml(resultCopy)}</p>
+    <button class="report-link-button" type="button" data-open-report>
+      자세한 분석은 보고서를 확인하세요
+    </button>
   `;
 
   $("demoFlow").innerHTML = DEMO_FLOW.map(
@@ -1127,6 +1163,27 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const finishCheckButton = event.target.closest("[data-finish-check]");
+  if (finishCheckButton) {
+    event.preventDefault();
+    clearDemoTimers();
+    state.demoStep = 4;
+    state.demoScriptIndex = 6;
+    renderDemoStage();
+    return;
+  }
+
+  const reportButton = event.target.closest("[data-open-report]");
+  if (reportButton) {
+    event.preventDefault();
+    const report = document.querySelector(".report-drawer");
+    if (report) {
+      report.open = true;
+      report.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    return;
+  }
+
   const intentButton = event.target.closest("[data-intent-mode]");
   if (intentButton) {
     clearDemoTimers();
@@ -1156,10 +1213,18 @@ document.addEventListener("click", (event) => {
   if (button) {
     const id = button.getAttribute("data-check-id");
     const wasChecked = Boolean(state.pauseChecks[id]);
-    state.pauseChecks[id] = !wasChecked;
+    if (wasChecked) {
+      renderDemoStage();
+      return;
+    }
+    state.pauseChecks[id] = true;
     const checkedIndex = PAUSE_CHECKS.findIndex((item) => item.id === id);
-    if (!wasChecked && checkedIndex === state.pauseSlideIndex && checkedIndex < PAUSE_CHECKS.length - 1) {
+    if (checkedIndex === state.pauseSlideIndex && checkedIndex < PAUSE_CHECKS.length - 1) {
       state.pauseSlideIndex = checkedIndex + 1;
+    }
+    if (checkedPauseCount() === PAUSE_CHECKS.length || checkedIndex === PAUSE_CHECKS.length - 1) {
+      state.demoStep = 4;
+      state.demoScriptIndex = 6;
     }
     if (state.overview) {
       renderReadiness();
