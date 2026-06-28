@@ -28,27 +28,88 @@ const INTENT_MODES = {
     badge: "관찰 모드",
     title: "판단 전에 관찰값을 먼저 정리합니다.",
     copy: "시장 점수, 과거 유사 구간, 오차 범위, 현재가 표시값을 한 번에 확인합니다.",
+    terminalLabel: "ORDER ROUTE",
+    terminalAction: "CLOSED",
+    terminalCopy: "공개 데이터 관찰값만 화면에 표시합니다.",
     tone: "neutral",
   },
   buy: {
     badge: "가상 매수 시도 차단",
     title: "실제 주문 대신 Decision Pause가 열렸습니다.",
     copy: "가격 움직임에 반응한 판단인지, 확인한 정보에 근거한 판단인지 먼저 분리합니다.",
+    terminalLabel: "BUY INTENT",
+    terminalAction: "ORDER BLOCKED",
+    terminalCopy: "주문 전송 없이 근거 확인 화면으로 전환합니다.",
     tone: "warn",
   },
   sell: {
     badge: "가상 매도 시도 차단",
     title: "실제 주문 대신 근거 점검으로 전환했습니다.",
     copy: "불안이나 급한 반응인지, 미리 정한 관찰 기준인지 확인합니다.",
+    terminalLabel: "SELL INTENT",
+    terminalAction: "ORDER BLOCKED",
+    terminalCopy: "급한 반응을 자기 점검 질문으로 바꿉니다.",
     tone: "alert",
   },
 };
 
+const DEMO_TOTAL_MS = 90000;
 const DEMO_FLOW = [
   ["시도 인식", "사용자가 가상 행동 버튼을 누릅니다."],
   ["실거래 차단", "주문 전송과 API Key 입력은 없습니다."],
   ["근거 분리", "점수·오차·과거 사례를 함께 봅니다."],
   ["일시정지", "Decision Pause 질문으로 마무리합니다."],
+];
+const DEMO_SCRIPT = [
+  {
+    delay: 0,
+    mode: "observe",
+    step: 0,
+    title: "1. 시장 상태를 먼저 엽니다",
+    copy: "API 연결, 선택 마켓, 표시용 현재가와 FOMO Score를 같은 화면에서 확인합니다.",
+  },
+  {
+    delay: 12000,
+    mode: "buy",
+    step: 0,
+    title: "2. 가상 매수 시도가 들어옵니다",
+    copy: "사용자가 가격 움직임에 반응하려는 순간을 시연합니다. 실제 주문 기능은 열리지 않습니다.",
+  },
+  {
+    delay: 28000,
+    mode: "buy",
+    step: 1,
+    title: "3. 주문 경로를 차단합니다",
+    copy: "API Key 입력과 주문 전송 없이, 공개 데이터 기반 관찰 화면으로 흐름을 돌립니다.",
+  },
+  {
+    delay: 43000,
+    mode: "buy",
+    step: 2,
+    title: "4. 판단 근거를 나눕니다",
+    copy: "현재 점수, 과거 참고 구간, 오차 범위, 표시용 현재가를 함께 보여줍니다.",
+  },
+  {
+    delay: 58000,
+    mode: "buy",
+    step: 3,
+    title: "5. Decision Pause로 멈춥니다",
+    copy: "지금 판단의 근거가 정보인지 감정인지 체크리스트로 확인합니다.",
+  },
+  {
+    delay: 72000,
+    mode: "sell",
+    step: 1,
+    title: "6. 가상 매도 시도도 같은 원칙입니다",
+    copy: "불안한 반응도 주문으로 연결하지 않고 근거 점검으로 전환합니다.",
+  },
+  {
+    delay: 84000,
+    mode: "sell",
+    step: 3,
+    title: "7. 안전한 MVP 원칙으로 마무리합니다",
+    copy: "투자 추천 없이 시장 상태 관찰, 과거 참고 사례, 자기 점검만 제공합니다.",
+  },
 ];
 
 const state = {
@@ -62,6 +123,8 @@ const state = {
   errors: {},
   intentMode: "observe",
   demoStep: 0,
+  demoStartedAt: null,
+  demoScriptIndex: 0,
   demoTimers: [],
   pauseChecks: Object.fromEntries(PAUSE_CHECKS.map((item) => [item.id, false])),
 };
@@ -92,6 +155,13 @@ const API_BASE = resolveApiBase();
 const API_LABEL = API_BASE || window.location.origin || DEFAULT_API_ORIGIN;
 
 const formatScore = (value) => (Number.isFinite(value) ? value.toFixed(2) : "--");
+
+const formatDemoTime = (value) => {
+  const totalSeconds = Math.max(0, Math.floor(Number(value) / 1000));
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+};
 
 const formatPercent = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "N/A";
@@ -189,11 +259,25 @@ function tickerForMarket(market) {
   return (state.ticker?.items || []).find((item) => item.market === market);
 }
 
+function updateDemoProgress(elapsedMs = 0) {
+  const clock = $("demoClock");
+  const progress = $("demoProgress");
+  if (!clock || !progress) return;
+  const elapsed = Math.max(0, Math.min(DEMO_TOTAL_MS, elapsedMs));
+  clock.textContent = `${formatDemoTime(elapsed)} / ${formatDemoTime(DEMO_TOTAL_MS)}`;
+  progress.style.width = `${(elapsed / DEMO_TOTAL_MS) * 100}%`;
+}
+
 function clearDemoTimers() {
-  state.demoTimers.forEach((timer) => window.clearTimeout(timer));
+  state.demoTimers.forEach((timer) => {
+    window.clearTimeout(timer);
+    window.clearInterval(timer);
+  });
   state.demoTimers = [];
+  state.demoStartedAt = null;
   const button = $("demoAutoBtn");
-  if (button) button.textContent = "2분 데모 시작";
+  if (button) button.textContent = "90초 가이드 시작";
+  updateDemoProgress(0);
 }
 
 function setIntentMode(mode, step = 3) {
@@ -217,10 +301,23 @@ function renderDemoStage() {
   $("firewallBadge").className = mode.tone;
   $("intentTitle").textContent = mode.title;
   $("intentCopy").textContent = mode.copy;
+  $("orderTerminal").className = `order-terminal ${mode.tone}`;
+  $("terminalLabel").textContent = mode.terminalLabel;
+  $("terminalAction").textContent = mode.terminalAction;
+  $("terminalCopy").textContent = mode.terminalCopy;
 
   document.querySelectorAll("[data-intent-mode]").forEach((button) => {
     button.classList.toggle("active", button.getAttribute("data-intent-mode") === state.intentMode);
   });
+
+  const activeScript = DEMO_SCRIPT[state.demoScriptIndex] || DEMO_SCRIPT[0];
+  $("demoCaption").textContent = state.demoStartedAt ? activeScript.title : "발표 속도에 맞춰 천천히 전환됩니다.";
+  $("demoScript").innerHTML = `
+    <span>Presentation cue</span>
+    <strong>${escapeHtml(activeScript.title)}</strong>
+    <p>${escapeHtml(activeScript.copy)}</p>
+  `;
+  updateDemoProgress(state.demoStartedAt ? Date.now() - state.demoStartedAt : 0);
 
   $("demoFlow").innerHTML = DEMO_FLOW.map(
     ([title, copy], index) => `
@@ -261,21 +358,29 @@ function renderDemoStage() {
 function runDemoSequence() {
   clearDemoTimers();
   const button = $("demoAutoBtn");
-  button.textContent = "시연 진행 중";
-  const script = [
-    [0, "observe", 0],
-    [900, "buy", 1],
-    [1900, "buy", 2],
-    [3100, "buy", 3],
-    [4700, "sell", 1],
-    [6100, "sell", 3],
-  ];
-  state.demoTimers = script.map(([delay, mode, step]) =>
-    window.setTimeout(() => setIntentMode(mode, step), delay),
+  button.textContent = "90초 가이드 진행 중";
+  state.demoStartedAt = Date.now();
+  state.demoScriptIndex = 0;
+  updateDemoProgress(0);
+
+  state.demoTimers = DEMO_SCRIPT.map((item, index) =>
+    window.setTimeout(() => {
+      state.demoScriptIndex = index;
+      setIntentMode(item.mode, item.step);
+    }, item.delay),
   );
+
+  const progressTimer = window.setInterval(() => {
+    if (!state.demoStartedAt) return;
+    updateDemoProgress(Date.now() - state.demoStartedAt);
+  }, 500);
+  state.demoTimers.push(progressTimer);
+
   state.demoTimers.push(window.setTimeout(() => {
-    button.textContent = "2분 데모 시작";
-  }, 7600));
+    state.demoStartedAt = null;
+    button.textContent = "90초 가이드 다시 시작";
+    updateDemoProgress(DEMO_TOTAL_MS);
+  }, DEMO_TOTAL_MS));
 }
 
 function renderCurrent() {
@@ -774,6 +879,7 @@ document.addEventListener("click", (event) => {
   if (intentButton) {
     clearDemoTimers();
     const mode = intentButton.getAttribute("data-intent-mode");
+    state.demoScriptIndex = mode === "buy" ? 2 : mode === "sell" ? 5 : 0;
     setIntentMode(mode, mode === "observe" ? 0 : 3);
     return;
   }
