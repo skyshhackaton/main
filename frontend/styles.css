@@ -565,6 +565,196 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.simulator-surface {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(210px, 0.88fr);
+  gap: 10px;
+}
+
+.intent-ticket,
+.pause-preview {
+  min-height: 248px;
+  padding: 14px;
+  border-radius: 8px;
+}
+
+.intent-ticket {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.intent-ticket.warn {
+  border-color: rgba(245, 194, 81, 0.44);
+  background: rgba(245, 194, 81, 0.1);
+}
+
+.intent-ticket.alert {
+  border-color: rgba(201, 79, 79, 0.38);
+  background: rgba(201, 79, 79, 0.1);
+}
+
+.ticket-head,
+.pause-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ticket-head span,
+.ticket-head strong,
+.ticket-head em,
+.pause-preview-head span,
+.pause-preview-head strong {
+  display: block;
+}
+
+.ticket-head span,
+.pause-preview-head span {
+  margin-bottom: 5px;
+  color: #9fb0c3;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.ticket-head strong,
+.pause-preview-head strong {
+  color: #ffffff;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.ticket-head em {
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: rgba(6, 11, 18, 0.72);
+  color: #f5c251;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.ticket-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 13px 0 10px;
+}
+
+.ticket-tab {
+  width: auto;
+  height: auto;
+  min-height: 36px;
+  border-color: rgba(148, 163, 184, 0.26);
+  background: rgba(6, 11, 18, 0.56);
+  color: #dbe6f2;
+  font-weight: 900;
+}
+
+.ticket-tab.active {
+  border-color: rgba(45, 155, 109, 0.72);
+  background: rgba(45, 155, 109, 0.22);
+  color: #ffffff;
+}
+
+.ticket-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ticket-fields div {
+  min-height: 58px;
+  padding: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: rgba(6, 11, 18, 0.36);
+}
+
+.ticket-fields span,
+.ticket-fields strong {
+  display: block;
+}
+
+.ticket-fields span {
+  margin-bottom: 4px;
+  color: #93a4b7;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.ticket-fields strong {
+  color: #ffffff;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.intent-ticket p {
+  margin: 10px 0;
+  color: #c8d3df;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.blocked-submit {
+  width: 100%;
+  height: auto;
+  min-height: 40px;
+  border-color: rgba(245, 194, 81, 0.44);
+  background: rgba(245, 194, 81, 0.16);
+  color: #ffe2a0;
+  font-weight: 900;
+  cursor: not-allowed;
+}
+
+.pause-preview {
+  border: 1px solid rgba(45, 155, 109, 0.32);
+  background: rgba(45, 155, 109, 0.09);
+}
+
+.quick-pause-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.quick-pause-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: auto;
+  height: auto;
+  min-height: 42px;
+  padding: 9px 10px;
+  border-color: rgba(148, 163, 184, 0.24);
+  background: rgba(6, 11, 18, 0.42);
+  color: #dbe6f2;
+  text-align: left;
+}
+
+.quick-pause-toggle[aria-pressed="true"] {
+  border-color: rgba(45, 155, 109, 0.68);
+  background: rgba(45, 155, 109, 0.2);
+}
+
+.quick-pause-toggle span,
+.quick-pause-toggle strong {
+  display: block;
+}
+
+.quick-pause-toggle span {
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.quick-pause-toggle strong {
+  color: #9fdcbf;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
 .firewall-lockup {
   display: grid;
   grid-template-columns: minmax(170px, 0.82fr) minmax(0, 1.18fr);
@@ -1492,6 +1682,7 @@ button:disabled {
   .demo-flow,
   .firewall-lockup,
   .observation-main,
+  .simulator-surface,
   .intent-evidence {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1554,6 +1745,8 @@ button:disabled {
   .firewall-lockup,
   .observation-grid,
   .observation-main,
+  .simulator-surface,
+  .ticket-fields,
   .intent-evidence {
     grid-template-columns: 1fr;
   }

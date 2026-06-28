@@ -359,6 +359,48 @@ function renderDemoStage() {
     </div>
   `;
 
+  const ticketMode = state.intentMode === "sell" ? "sell" : state.intentMode === "buy" ? "buy" : "observe";
+  const ticketLabel = ticketMode === "sell" ? "가상 매도 티켓" : ticketMode === "buy" ? "가상 매수 티켓" : "가상 행동 대기";
+  const ticketAction = ticketMode === "sell" ? "SELL INTENT" : ticketMode === "buy" ? "BUY INTENT" : "OBSERVE";
+  const ticketCopy =
+    ticketMode === "observe"
+      ? "왼쪽 버튼이나 아래 탭으로 가상 행동을 선택하면 실제 주문 대신 점검 화면이 열립니다."
+      : "이 화면은 주문 입력 화면처럼 보이지만 주문 전송, 수량 입력, API Key 입력이 없습니다.";
+  $("intentTicket").className = `intent-ticket ${mode.tone}`;
+  $("intentTicket").innerHTML = `
+    <div class="ticket-head">
+      <div>
+        <span>Virtual Trade Intent</span>
+        <strong>${ticketLabel}</strong>
+      </div>
+      <em>${ticketAction}</em>
+    </div>
+    <div class="ticket-tabs">
+      <button class="ticket-tab" type="button" data-intent-mode="buy">가상 매수</button>
+      <button class="ticket-tab" type="button" data-intent-mode="sell">가상 매도</button>
+    </div>
+    <div class="ticket-fields">
+      <div><span>마켓</span><strong>${escapeHtml(state.market)}</strong></div>
+      <div><span>표시용 현재가</span><strong>${ticker ? `${formatKrw(ticker.trade_price)} KRW` : "확인 중"}</strong></div>
+      <div><span>FOMO Score</span><strong>${Number.isFinite(score) ? formatScore(score) : "--"}</strong></div>
+      <div><span>API Key</span><strong>요구하지 않음</strong></div>
+    </div>
+    <p>${escapeHtml(ticketCopy)}</p>
+    <button class="blocked-submit" type="button" disabled>주문 전송 없음 · Decision Pause로 전환</button>
+  `;
+  $("intentTicket").querySelectorAll("[data-intent-mode]").forEach((button) => {
+    button.classList.toggle("active", button.getAttribute("data-intent-mode") === ticketMode);
+  });
+
+  $("quickPauseList").innerHTML = PAUSE_CHECKS.map(
+    (item) => `
+      <button class="quick-pause-toggle" type="button" data-check-id="${escapeHtml(item.id)}" aria-pressed="${state.pauseChecks[item.id]}">
+        <span>${escapeHtml(item.title)}</span>
+        <strong>${state.pauseChecks[item.id] ? "확인됨" : "확인 필요"}</strong>
+      </button>
+    `,
+  ).join("");
+
   $("demoFlow").innerHTML = DEMO_FLOW.map(
     ([title, copy], index) => `
       <div class="flow-step ${index <= state.demoStep ? "active" : ""}">
@@ -928,8 +970,10 @@ document.addEventListener("click", (event) => {
   if (button) {
     const id = button.getAttribute("data-check-id");
     state.pauseChecks[id] = !state.pauseChecks[id];
-    renderReadiness();
-    renderPauseChecklist();
+    if (state.overview) {
+      renderReadiness();
+      renderPauseChecklist();
+    }
     renderDemoStage();
     return;
   }
